@@ -20,17 +20,15 @@ func NewMetadata(m map[string]string) metadata {
 	return md
 }
 
-// AddMetadata 将 metadata 元数据添加到上下文中。
-func AddMetadata(ctx context.Context, md metadata) context.Context {
-	return context.WithValue(ctx, "metadata", md)
-}
-
-// GetMetadata 从上下文中提取 metadata 元数据。
-func GetMetadata(ctx context.Context) metadata {
-	if md, ok := ctx.Value("metadata").(metadata); ok {
-		return md
+// Append 将一个或多个值追加到指定的元数据键中。
+// 如果键不存在，它会创建一个新的键，并将值添加到该键对应的切片中。
+// 如果键已经存在，新的值将被追加到现有的切片后面。
+func (md metadata) Append(k string, vals ...string) {
+	if len(vals) == 0 {
+		return
 	}
-	return nil
+	k = strings.ToLower(k)
+	md[k] = append(md[k], vals...)
 }
 
 func Pairs(kv ...string) metadata {
@@ -45,12 +43,24 @@ func Pairs(kv ...string) metadata {
 	return md
 }
 
-func Join(mds ...metadata) metadata {
-	out := metadata{}
-	for _, md := range mds {
-		for k, v := range md {
-			out[k] = append(out[k], v...)
-		}
+func (md metadata) Get(key string) string {
+	if md == nil {
+		return ""
 	}
-	return out
+	return strings.Join(md[key], ",")
+}
+
+type metadataKey struct{}
+
+// AddMetadata 将 metadata 元数据添加到上下文中。
+func AddMetadataToContext(ctx context.Context, md metadata) context.Context {
+	return context.WithValue(ctx, metadataKey{}, md)
+}
+
+// GetMetadata 从上下文中提取 metadata 元数据。
+func GetMetadataFromContext(ctx context.Context) metadata {
+	if md, ok := ctx.Value(metadataKey{}).(metadata); ok {
+		return md
+	}
+	return nil
 }

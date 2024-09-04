@@ -1,23 +1,66 @@
 package metadata
 
 import (
-	"testing"
+	"context"
 	"reflect"
+	"testing"
 )
 
-func TestJoin(t *testing.T) {
-	for _, test := range []struct {
-		mds  []metadata
-		want metadata
-	}{
-		{[]metadata{}, metadata{}},
-		{[]metadata{Pairs("foo", "bar")}, Pairs("foo", "bar")},
-		{[]metadata{Pairs("foo", "bar"), Pairs("foo", "baz")}, Pairs("foo", "bar", "foo", "baz")},
-		{[]metadata{Pairs("foo", "bar"), Pairs("foo", "baz"), Pairs("zip", "zap")}, Pairs("foo", "bar", "foo", "baz", "zip", "zap")},
-	} {
-		md := Join(test.mds...)
-		if !reflect.DeepEqual(md, test.want) {
-			t.Errorf("context's metadata is %v, want %v", md, test.want)
+func TestNewMetadata(t *testing.T) {
+	input := map[string]string{
+		"foo": "bar",
+		"zip": "zap",
+	}
+
+	md := NewMetadata(input)
+
+	for k, v := range input {
+		if md.Get(k) != v {
+			t.Errorf("metadata.Get(%q) = %q, want %q", k, md.Get(k), v)
 		}
+	}
+}
+
+func TestAppend(t *testing.T) {
+	md := NewMetadata(map[string]string{
+		"foo": "bar",
+	})
+
+	md.Append("zip", "zap")
+
+	if md.Get("zip") != "zap" {
+		t.Errorf("metadata.Get(%q) = %q, want %q", "zip", md.Get("zip"), "zap")
+	}
+}
+
+func TestPairs(t *testing.T) {
+	md := Pairs("foo", "bar", "zip", "zap")
+
+	if md.Get("foo") != "bar" {
+		t.Errorf("metadata.Get(%q) = %q, want %q", "foo", md.Get("foo"), "bar")
+	}
+
+	if md.Get("zip") != "zap" {
+		t.Errorf("metadata.Get(%q) = %q, want %q", "zip", md.Get("zip"), "zap")
+	}
+}
+
+func TestAddMetadataToContext(t *testing.T) {
+	ctx := context.Background()
+	md := Pairs("foo", "bar")
+	ctx = AddMetadataToContext(ctx, md)
+
+	if !reflect.DeepEqual(md, GetMetadataFromContext(ctx)) {
+		t.Errorf("context's metadata is %v, want %v", GetMetadataFromContext(ctx), md)
+	}
+}
+
+func TestGetMetadataFromContext(t *testing.T) {
+	ctx := context.Background()
+	md := Pairs("zip", "zap")
+	ctx = AddMetadataToContext(ctx, md)
+
+	if !reflect.DeepEqual(md, GetMetadataFromContext(ctx)) {
+		t.Errorf("context's metadata is %v, want %v", GetMetadataFromContext(ctx), md)
 	}
 }
