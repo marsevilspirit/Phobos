@@ -1,8 +1,8 @@
 package codec
 
 import (
-    "google.golang.org/protobuf/proto"
-    "errors"
+	"errors"
+	"google.golang.org/protobuf/proto"
 )
 
 // Codec 是用于不同序列化格式的通用接口
@@ -14,8 +14,10 @@ type Codec interface {
 // ProtobufCodec 实现了 Codec 接口，用于 Protobuf 编解码
 type ProtobufCodec struct{}
 
+var _ Codec = (*ProtobufCodec)(nil)
+
 // Encode 将数据对象编码为 Protobuf 字节流
-func (p *ProtobufCodec) Encode(v interface{}) ([]byte, error) {
+func (p ProtobufCodec) Encode(v interface{}) ([]byte, error) {
     // 检查传入的对象是否实现了 proto.Message 接口
     msg, ok := v.(proto.Message)
     if !ok {
@@ -26,7 +28,7 @@ func (p *ProtobufCodec) Encode(v interface{}) ([]byte, error) {
 }
 
 // Decode 从 Protobuf 字节流解码为数据对象
-func (p *ProtobufCodec) Decode(data []byte, v interface{}) error {
+func (p ProtobufCodec) Decode(data []byte, v interface{}) error {
     // 检查传入的对象是否实现了 proto.Message 接口
     msg, ok := v.(proto.Message)
     if !ok {
