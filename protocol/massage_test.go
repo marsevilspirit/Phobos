@@ -1,8 +1,8 @@
 package protocol
 
 import (
-	"testing"
 	"bytes"
+	"testing"
 )
 
 func TestHeader_CheckMagicNumber(t *testing.T) {
@@ -118,7 +118,7 @@ func TestMessage_EncodeDecode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := readMessage(&buf)
+	res, err := Read(&buf)
 	if err != nil {
 		t.Fatal(err)
 	}

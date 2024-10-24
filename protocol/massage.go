@@ -95,7 +95,7 @@ func (h Header) MessageType() MessageType {
 	return MessageType(h[2] & 0x80)
 }
 
-func (h Header) SetMessageType(mt MessageType) {
+func (h *Header) SetMessageType(mt MessageType) {
 	h[2] = h[2] | (byte(mt) << 7)
 }
 
@@ -140,7 +140,7 @@ func (h *Header) SetMessageStatusType(mt MessageStatusType) {
 }
 
 // 0xF0 是 1111 0000
-func (h *Header) SerializeType() SerializeType {
+func (h Header) SerializeType() SerializeType {
 	return SerializeType((h[3] & 0xF0) >> 4)
 }
 
@@ -256,7 +256,7 @@ func decodeMetadata(lenData []byte, r io.Reader) (map[string]string, error) {
 	return m, nil
 }
 
-func readMessage(r io.Reader) (*Message, error) {
+func Read(r io.Reader) (*Message, error) {
 	msg := NewMessage()
 	_, err := io.ReadFull(r, msg.Header[:])
 	if err != nil {
