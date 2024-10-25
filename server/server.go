@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"reflect"
 	"runtime"
 	"sync"
 	"time"
@@ -19,9 +20,13 @@ import (
 var ErrServerClosed = errors.New("http: Server closed")
 
 const (
-	DefaultRPCPath   = "/__mrpc__"
+	DefaultRPCPath = "/__mrpc__"
+
 	ReaderBufferSize = 16 * 1024
 	WriterBufferSize = 16 * 1024
+
+	ServicePath   = "__mrpc_path__"
+	ServiceMethod = "__mrpc_method__"
 )
 
 type contextKey struct {
@@ -41,9 +46,14 @@ type Server struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
-	mu           sync.Mutex
-	activeConn   map[net.Conn]struct{}
-	done         chan struct{}
+
+	serviceMapMu sync.RWMutex
+	serviceMap   map[string]*service
+	methodMap    map[string]*methodType
+
+	mu         sync.Mutex
+	activeConn map[net.Conn]struct{}
+	done       chan struct{}
 }
 
 func (s *Server) getDone() <-chan struct{} {
@@ -169,12 +179,14 @@ func (s *Server) serveConn(conn net.Conn) {
 			log.Errorf("mrpc: failed to read request: %v", err)
 		}
 
-		res, err := s.handleRequest(ctx, req)
-		if err != nil {
-			log.Errorf("mrpc: failed to handle request: %v", err)
-		}
+		go func() {
+			res, err := s.handleRequest(ctx, req)
+			if err != nil {
+				log.Errorf("mrpc: failed to handle request: %v", err)
+			}
 
-		res.WriteTo(w)
+			res.WriteTo(w)
+		}()
 	}
 }
 
@@ -184,9 +196,52 @@ func (s *Server) readRequest(ctx context.Context, r io.Reader) (req *protocol.Me
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *protocol.Message) (res *protocol.Message, err error) {
-	// TODO:
+	res = protocol.NewMessage()
 
-	return req, nil
+	serviceName := req.Metadata[ServicePath]
+	methodName := req.Metadata[ServiceMethod]
+
+	s.serviceMapMu.RLock()
+	service := s.serviceMap[serviceName]
+	s.serviceMapMu.RUnlock()
+	if service == nil {
+		err = errors.New("mrpc: can't find service " + serviceName)
+		return
+	}
+	mtype := service.method[methodName]
+	if mtype == nil {
+		err = errors.New("mrpc: can't find method " + methodName)
+	}
+
+	var argv, replyv reflect.Value
+
+	argIsValue := false
+	if mtype.ArgType.Kind() == reflect.Ptr {
+		argv = reflect.New(mtype.ArgType.Elem())
+	} else {
+		argv = reflect.New(mtype.ArgType)
+		argIsValue = true
+	}
+
+	// TODO: decode from payload
+
+	if argIsValue {
+		argv = argv.Elem()
+	}
+
+	replyv = reflect.New(mtype.ReplyType.Elem())
+
+	err = service.call(ctx, mtype, argv, replyv)
+	if err != nil {
+		// TODO: set error response
+		return res, err
+	}
+
+	// TODO: clone req for req,
+	// encode replyv to res.Payload or
+	// return res
+
+	return res, nil
 }
 
 var connected = "200 Connected to Go RPC"
