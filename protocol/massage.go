@@ -48,9 +48,10 @@ const (
 type SerializeType byte
 
 const (
-	JSON SerializeType = iota
+	SerializeNone SerializeType = iota
+	JSON
 	ProtoBuffer
-	// TODO: etc...
+	MsgPack
 )
 
 type Message struct {
@@ -154,6 +155,15 @@ func (h Header) Seq() uint64 {
 
 func (h *Header) SetSeq(seq uint64) {
 	binary.BigEndian.PutUint64(h[4:], seq)
+}
+
+func (m Message) Clone() *Message {
+	header := *m.Header
+	c := &Message{
+		Header:   &header,
+		Metadata: make(map[string]string),
+	}
+	return c
 }
 
 func (m Message) Encode() []byte {

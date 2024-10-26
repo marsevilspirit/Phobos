@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/marsevilspirit/m_RPC/codec"
 	"github.com/marsevilspirit/m_RPC/log"
 	"github.com/marsevilspirit/m_RPC/protocol"
 )
@@ -27,6 +29,16 @@ const (
 
 	ServicePath   = "__mrpc_path__"
 	ServiceMethod = "__mrpc_method__"
+	ServiceError  = "__mrpc_error__"
+)
+
+var (
+	codecs = map[protocol.SerializeType]codec.Codec{
+		protocol.SerializeNone: &codec.ByteCodec{},
+		protocol.JSON:          &codec.JSONCodec{},
+		protocol.ProtoBuffer:   &codec.ProtobufCodec{},
+		protocol.MsgPack:       &codec.MsgpackCodec{},
+	}
 )
 
 type contextKey struct {
@@ -196,7 +208,8 @@ func (s *Server) readRequest(ctx context.Context, r io.Reader) (req *protocol.Me
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *protocol.Message) (res *protocol.Message, err error) {
-	res = protocol.NewMessage()
+	res = req.Clone()
+	res.SetMessageType(protocol.Response)
 
 	serviceName := req.Metadata[ServicePath]
 	methodName := req.Metadata[ServiceMethod]
@@ -206,11 +219,15 @@ func (s *Server) handleRequest(ctx context.Context, req *protocol.Message) (res 
 	s.serviceMapMu.RUnlock()
 	if service == nil {
 		err = errors.New("mrpc: can't find service " + serviceName)
+		res.SetMessageStatusType(protocol.Error)
+		res.Metadata[ServiceError] = err.Error()
 		return
 	}
 	mtype := service.method[methodName]
 	if mtype == nil {
 		err = errors.New("mrpc: can't find method " + methodName)
+		res.SetMessageStatusType(protocol.Error)
+		res.Metadata[ServiceError] = err.Error()
 	}
 
 	var argv, replyv reflect.Value
@@ -223,24 +240,42 @@ func (s *Server) handleRequest(ctx context.Context, req *protocol.Message) (res 
 		argIsValue = true
 	}
 
-	// TODO: decode from payload
-
 	if argIsValue {
 		argv = argv.Elem()
+	}
+
+	codec := codecs[req.SerializeType()]
+	if codec == nil {
+		err = fmt.Errorf("can not find codec for %d", req.SerializeType())
+		res.SetMessageStatusType(protocol.Error)
+		res.Metadata[ServiceError] = err.Error()
+		return
+	}
+
+	err = codec.Decode(req.Payload, argv.Interface())
+	if err != nil {
+		res.SetMessageStatusType(protocol.Error)
+		res.Metadata[ServiceError] = err.Error()
+		return
 	}
 
 	replyv = reflect.New(mtype.ReplyType.Elem())
 
 	err = service.call(ctx, mtype, argv, replyv)
 	if err != nil {
-		// TODO: set error response
+		res.SetMessageStatusType(protocol.Error)
+		res.Metadata[ServiceError] = err.Error()
 		return res, err
 	}
 
-	// TODO: clone req for req,
-	// encode replyv to res.Payload or
-	// return res
+	data, err := codec.Encode(replyv.Interface())
+	if err != nil {
+		res.SetMessageStatusType(protocol.Error)
+		res.Metadata[ServiceError] = err.Error()
+		return res, err
+	}
 
+	res.Payload = data
 	return res, nil
 }
 
