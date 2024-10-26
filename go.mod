@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/kavu/go_reuseport v1.5.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect

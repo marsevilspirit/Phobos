@@ -21,6 +21,12 @@ var (
 	ErrMetaKVMissing = errors.New("wrong metadata lines. some keys or values are missing")
 )
 
+const (
+	ServicePath   = "__mrpc_path__"
+	ServiceMethod = "__mrpc_method__"
+	ServiceError  = "__mrpc_error__"
+)
+
 type MessageType byte
 
 // MessageType只有两种

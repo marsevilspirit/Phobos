@@ -14,31 +14,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/marsevilspirit/m_RPC/codec"
 	"github.com/marsevilspirit/m_RPC/log"
 	"github.com/marsevilspirit/m_RPC/protocol"
+	"github.com/marsevilspirit/m_RPC/share"
 )
 
 var ErrServerClosed = errors.New("http: Server closed")
 
 const (
-	DefaultRPCPath = "/__mrpc__"
-
-	ReaderBufferSize = 16 * 1024
-	WriterBufferSize = 16 * 1024
-
-	ServicePath   = "__mrpc_path__"
-	ServiceMethod = "__mrpc_method__"
-	ServiceError  = "__mrpc_error__"
-)
-
-var (
-	codecs = map[protocol.SerializeType]codec.Codec{
-		protocol.SerializeNone: &codec.ByteCodec{},
-		protocol.JSON:          &codec.JSONCodec{},
-		protocol.ProtoBuffer:   &codec.ProtobufCodec{},
-		protocol.MsgPack:       &codec.MsgpackCodec{},
-	}
+	ReaderBufferSize = 1024
+	WriterBufferSize = 1024
 )
 
 type contextKey struct {
@@ -57,15 +42,24 @@ type Server struct {
 	ln           net.Listener
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
-	IdleTimeout  time.Duration
 
 	serviceMapMu sync.RWMutex
 	serviceMap   map[string]*service
-	methodMap    map[string]*methodType
 
 	mu         sync.Mutex
 	activeConn map[net.Conn]struct{}
 	done       chan struct{}
+
+	inShutdown int32
+	onShutdown []func()
+}
+
+func (s *Server) Address() net.Addr {
+	if s.ln == nil {
+		return nil
+	}
+
+	return s.ln.Addr()
 }
 
 func (s *Server) getDone() <-chan struct{} {
@@ -79,32 +73,45 @@ func (s *Server) getDone() <-chan struct{} {
 	return s.done
 }
 
-func (s *Server) idleTimeout() time.Duration {
-	if s.IdleTimeout != 0 {
-		return s.IdleTimeout
-	}
-
-	return s.ReadTimeout
-}
-
-func (s *Server) Serve(ln net.Listener) error {
+func (s *Server) Serve(network, address string) (err error) {
 	log.Info("serving")
 
+	var ln net.Listener
+
+	ln, err = makeListener(network, address)
+	if err != nil {
+		return err
+	}
+
+	if network == "http" {
+		s.serveByHTTP(ln, "")
+		return nil
+	}
+
+	return s.serveListener(ln)
+}
+
+func (s *Server) serveListener(ln net.Listener) error {
 	s.ln = ln
 
 	var tempDelay time.Duration
 
+	s.mu.Lock()
+	if s.activeConn == nil {
+		s.activeConn = make(map[net.Conn]struct{})
+	}
+	s.mu.Unlock()
+
 	for {
-		conn, err := ln.Accept()
-		if err != nil {
+		conn, e := ln.Accept()
+		if e != nil {
 			select {
 			case <-s.getDone():
 				return ErrServerClosed
 			default:
 			}
 
-			// 检查是不是暂时错误
-			if ne, ok := err.(interface{ Temporary() bool }); ok && ne.Temporary() {
+			if ne, ok := e.(interface{ Temporary() bool }); ok && ne.Temporary() {
 				if tempDelay == 0 {
 					tempDelay = 5 * time.Millisecond
 				} else {
@@ -115,21 +122,17 @@ func (s *Server) Serve(ln net.Listener) error {
 					tempDelay = max
 				}
 
-				log.Errorf("mrpc: Accept error: %v; retrying in %v", err, tempDelay)
-
+				log.Errorf("rpcx: Accept error: %v; retrying in %v", e, tempDelay)
+				time.Sleep(tempDelay)
 				continue
 			}
-
-			log.Errorf("mrpc: done serving; accepct = %v", err)
-
-			return err
+			return e
 		}
-
 		tempDelay = 0
 
-		if tcp, ok := conn.(*net.TCPConn); ok {
-			tcp.SetKeepAlive(true)
-			tcp.SetKeepAlivePeriod(3 * time.Minute)
+		if tc, ok := conn.(*net.TCPConn); ok {
+			tc.SetKeepAlive(true)
+			tc.SetKeepAlivePeriod(3 * time.Minute)
 		}
 
 		s.mu.Lock()
@@ -138,6 +141,24 @@ func (s *Server) Serve(ln net.Listener) error {
 
 		go s.serveConn(conn)
 	}
+}
+
+func (s *Server) serveByHTTP(ln net.Listener, rpcPath string) {
+	s.ln = ln
+
+	if rpcPath == "" {
+		rpcPath = share.DefaultRPCPath
+	}
+	http.Handle(rpcPath, s)
+	srv := &http.Server{Handler: nil}
+
+	s.mu.Lock()
+	if s.activeConn == nil {
+		s.activeConn = make(map[net.Conn]struct{})
+	}
+	s.mu.Unlock()
+
+	srv.Serve(ln)
 }
 
 func (s *Server) serveConn(conn net.Conn) {
@@ -174,21 +195,18 @@ func (s *Server) serveConn(conn net.Conn) {
 	for {
 		now := time.Now()
 
-		if s.IdleTimeout != 0 {
-			conn.SetReadDeadline(now.Add(s.IdleTimeout))
-		}
-
 		if s.ReadTimeout != 0 {
 			conn.SetReadDeadline(now.Add(s.ReadTimeout))
-		}
-
-		if s.WriteTimeout != 0 {
-			conn.SetWriteDeadline(now.Add(s.WriteTimeout))
 		}
 
 		req, err := s.readRequest(ctx, r)
 		if err != nil {
 			log.Errorf("mrpc: failed to read request: %v", err)
+			return
+		}
+
+		if s.WriteTimeout != 0 {
+			conn.SetWriteDeadline(now.Add(s.WriteTimeout))
 		}
 
 		go func() {
@@ -198,6 +216,7 @@ func (s *Server) serveConn(conn net.Conn) {
 			}
 
 			res.WriteTo(w)
+			w.Flush()
 		}()
 	}
 }
@@ -211,23 +230,20 @@ func (s *Server) handleRequest(ctx context.Context, req *protocol.Message) (res 
 	res = req.Clone()
 	res.SetMessageType(protocol.Response)
 
-	serviceName := req.Metadata[ServicePath]
-	methodName := req.Metadata[ServiceMethod]
+	serviceName := req.Metadata[protocol.ServicePath]
+	methodName := req.Metadata[protocol.ServiceMethod]
 
 	s.serviceMapMu.RLock()
 	service := s.serviceMap[serviceName]
 	s.serviceMapMu.RUnlock()
 	if service == nil {
 		err = errors.New("mrpc: can't find service " + serviceName)
-		res.SetMessageStatusType(protocol.Error)
-		res.Metadata[ServiceError] = err.Error()
-		return
+		return handleError(res, err)
 	}
 	mtype := service.method[methodName]
 	if mtype == nil {
 		err = errors.New("mrpc: can't find method " + methodName)
-		res.SetMessageStatusType(protocol.Error)
-		res.Metadata[ServiceError] = err.Error()
+		return handleError(res, err)
 	}
 
 	var argv, replyv reflect.Value
@@ -244,39 +260,37 @@ func (s *Server) handleRequest(ctx context.Context, req *protocol.Message) (res 
 		argv = argv.Elem()
 	}
 
-	codec := codecs[req.SerializeType()]
+	codec := share.Codecs[req.SerializeType()]
 	if codec == nil {
 		err = fmt.Errorf("can not find codec for %d", req.SerializeType())
-		res.SetMessageStatusType(protocol.Error)
-		res.Metadata[ServiceError] = err.Error()
-		return
+		return handleError(res, err)
 	}
 
 	err = codec.Decode(req.Payload, argv.Interface())
 	if err != nil {
-		res.SetMessageStatusType(protocol.Error)
-		res.Metadata[ServiceError] = err.Error()
-		return
+		return handleError(res, err)
 	}
 
 	replyv = reflect.New(mtype.ReplyType.Elem())
 
 	err = service.call(ctx, mtype, argv, replyv)
 	if err != nil {
-		res.SetMessageStatusType(protocol.Error)
-		res.Metadata[ServiceError] = err.Error()
-		return res, err
+		return handleError(res, err)
 	}
 
 	data, err := codec.Encode(replyv.Interface())
 	if err != nil {
-		res.SetMessageStatusType(protocol.Error)
-		res.Metadata[ServiceError] = err.Error()
-		return res, err
+		return handleError(res, err)
 	}
 
 	res.Payload = data
 	return res, nil
+}
+
+func handleError(res *protocol.Message, err error) (*protocol.Message, error) {
+	res.SetMessageStatusType(protocol.Error)
+	res.Metadata[protocol.ServiceError] = err.Error()
+	return res, err
 }
 
 var connected = "200 Connected to Go RPC"
@@ -294,7 +308,52 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	io.WriteString(conn, "HTTP/1.0 "+connected+"\n\n")
+
+	s.mu.Lock()
+	s.activeConn[conn] = struct{}{}
+	s.mu.Unlock()
+
 	s.serveConn(conn)
+}
+
+func (s *Server) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.closeDoneLocked()
+	err := s.ln.Close()
+
+	for c := range s.activeConn {
+		c.Close()
+		delete(s.activeConn, c)
+	}
+
+	return err
+}
+
+// 优雅关闭连接
+func (s *Server) RegisterOnShutdown(f func()) {
+	s.mu.Lock()
+	s.onShutdown = append(s.onShutdown, f)
+	s.mu.Unlock()
+}
+
+func (s *Server) closeDoneLocked() {
+	ch := s.getDoneLocked()
+	select {
+	case <-ch:
+		// 已经关闭，不用再次关闭
+	default:
+		close(ch)
+	}
+}
+
+func (s *Server) getDoneLocked() chan struct{} {
+	if s.done == nil {
+		s.done = make(chan struct{})
+	}
+
+	return s.done
 }
 
 func (s *Server) HandleHTTP(rpcPath, debugPath string) {

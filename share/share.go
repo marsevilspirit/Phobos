@@ -7,7 +7,7 @@ import (
 
 const (
 	// used by HTTP
-	DefaultRPCPath = "/_mpc_"
+	DefaultRPCPath = "/_mrpc_"
 )
 
 var (
