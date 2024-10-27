@@ -65,16 +65,18 @@ func TestHeader_CompressType(t *testing.T) {
 }
 
 func TestHeader_SerializeType(t *testing.T) {
-	header := Header([12]byte{})
+	header1 := Header([12]byte{})
 
-	header.SetSerializeType(JSON)
-	if header.SerializeType() != JSON {
-		t.Errorf("expected serialize %d, got %d", JSON, header.SerializeType())
+	header1.SetSerializeType(JSON)
+	if header1.SerializeType() != JSON {
+		t.Errorf("expected serialize %d, got %d", JSON, header1.SerializeType())
 	}
 
-	header.SetSerializeType(ProtoBuffer)
-	if header.SerializeType() != ProtoBuffer {
-		t.Errorf("expected serialize %d, got %d", ProtoBuffer, header.SerializeType())
+	header2 := Header([12]byte{})
+
+	header2.SetSerializeType(ProtoBuffer)
+	if header2.SerializeType() != ProtoBuffer {
+		t.Errorf("expected serialize %d, got %d", ProtoBuffer, header2.SerializeType())
 	}
 }
 

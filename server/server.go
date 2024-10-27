@@ -122,7 +122,7 @@ func (s *Server) serveListener(ln net.Listener) error {
 					tempDelay = max
 				}
 
-				log.Errorf("rpcx: Accept error: %v; retrying in %v", e, tempDelay)
+				log.Errorf("mrpc: Accept error: %v; retrying in %v", e, tempDelay)
 				time.Sleep(tempDelay)
 				continue
 			}
@@ -232,7 +232,6 @@ func (s *Server) handleRequest(ctx context.Context, req *protocol.Message) (res 
 
 	serviceName := req.Metadata[protocol.ServicePath]
 	methodName := req.Metadata[protocol.ServiceMethod]
-
 	s.serviceMapMu.RLock()
 	service := s.serviceMap[serviceName]
 	s.serviceMapMu.RUnlock()
@@ -293,7 +292,7 @@ func handleError(res *protocol.Message, err error) (*protocol.Message, error) {
 	return res, err
 }
 
-var connected = "200 Connected to Go RPC"
+var connected = "200 Connected to mrpc"
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "CONNECT" {

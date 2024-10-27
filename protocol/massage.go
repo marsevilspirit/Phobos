@@ -69,6 +69,7 @@ type Message struct {
 func NewMessage() *Message {
 	header := Header([12]byte{})
 	header[0] = magicNumber
+
 	return &Message{
 		Header:   &header,
 		Metadata: make(map[string]string),
