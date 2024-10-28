@@ -32,14 +32,5 @@ func main() {
 		log.Fatalf("failed to call: %v", err)
 	}
 
-	fmt.Println("reply1:", reply.Last)
-
-	err = client.Call(context.Background(), "HelloWorld", "Helloworld", args, reply)
-	if err != nil {
-		log.Fatalf("failed to call: %v", err)
-	}
-
-	fmt.Println("reply2:", reply.Last)
-
-	client.Close()
+	fmt.Println("reply:", reply.Last)
 }

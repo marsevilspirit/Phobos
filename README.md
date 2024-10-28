@@ -5,3 +5,4 @@
 ```
 2024/10/28 18:27:02 server.go:203: ERROR: mrpc: failed to read request: EOF
 ```
+其实也不算bug,只是一时这样处理
