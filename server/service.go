@@ -85,9 +85,9 @@ func (s *Server) register(rcvr interface{}, name string, useName bool) error {
 
 		method := suitableMethods(reflect.PointerTo(service.typ), false)
 		if len(method) != 0 {
-			errorStr = "mrpc.register: type " + sname + "has no exportedmethods of suitable type (hint: pass a pointer to value of that type)"
+			errorStr = "mrpc.register: type " + sname + " has no exportedmethods of suitable type (hint: pass a pointer to value of that type)"
 		} else {
-			errorStr = "mrpc.register: type " + sname + "has no exportedmethods of suitable type"
+			errorStr = "mrpc.register: type " + sname + " has no exportedmethods of suitable type"
 		}
 		log.Error(errorStr)
 		return errors.New(errorStr)

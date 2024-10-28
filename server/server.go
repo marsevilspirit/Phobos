@@ -74,14 +74,13 @@ func (s *Server) getDone() <-chan struct{} {
 }
 
 func (s *Server) Serve(network, address string) (err error) {
-	log.Info("serving")
-
 	var ln net.Listener
 
 	ln, err = makeListener(network, address)
 	if err != nil {
 		return err
 	}
+	log.Info("serving on ", ln.Addr().String())
 
 	if network == "http" {
 		s.serveByHTTP(ln, "")
