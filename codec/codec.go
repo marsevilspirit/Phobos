@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	pb "github.com/gogo/protobuf/proto"
 	"github.com/vmihailenco/msgpack/v5"
+	pb "google.golang.org/protobuf/proto"
 )
 
 type Codec interface {
@@ -42,16 +42,16 @@ func (c JSONCodec) Decode(data []byte, i interface{}) error {
 type ProtobufCodec struct{}
 
 func (c ProtobufCodec) Encode(i interface{}) ([]byte, error) {
-	if m, ok := i.(pb.Marshaler); ok {
-		return m.Marshal()
+	if m, ok := i.(pb.Message); ok {
+		return pb.Marshal(m)
 	}
 
-	return nil, fmt.Errorf("%T is not a pb.Marshaler", i)
+	return nil, fmt.Errorf("%T is not a proto.Marshaler", i)
 }
 
 func (c ProtobufCodec) Decode(data []byte, i interface{}) error {
-	if m, ok := i.(pb.Unmarshaler); ok {
-		return m.Unmarshal(data)
+	if m, ok := i.(pb.Message); ok {
+		return pb.Unmarshal(data, m)
 	}
 
 	return fmt.Errorf("%T is not a proto.Unmarshaler", i)
