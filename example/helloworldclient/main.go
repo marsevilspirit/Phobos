@@ -20,6 +20,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect: %v", err)
 	}
+	defer client.Close()
 
 	args := &helloworld.HelloWorldArgs{
 		First: "hello",
