@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package codec;
+
+option go_package = ".;codec";
+
+// 定义 ProtoArgs 消息
+message ProtoArgs {
+    int32 A = 1;
+    int32 B = 2;
+}

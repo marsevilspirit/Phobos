@@ -146,8 +146,6 @@ func (client *Client) send(ctx context.Context, call *Call) {
 		return
 	}
 
-	log.Debug("client.SeralizeType is ", client.SerializeType)
-
 	codec := share.Codecs[client.SerializeType]
 	if codec == nil {
 		call.Error = ErrUnspportedCodec

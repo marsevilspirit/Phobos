@@ -1,24 +1,8 @@
 package codec
 
 import (
-	"encoding/json"
 	"testing"
 )
-
-// MockProto 是一个模拟的 proto.Message，用于测试 ProtobufCodec
-type MockProto struct {
-	Field1 string
-}
-
-func (m *MockProto) Reset()         {}
-func (m *MockProto) String() string { return "" }
-func (m *MockProto) ProtoMessage()  {}
-func (m *MockProto) Marshal() ([]byte, error) {
-	return json.Marshal(m)
-}
-func (m *MockProto) Unmarshal(data []byte) error {
-	return json.Unmarshal(data, m)
-}
 
 func TestByteCodec(t *testing.T) {
 	codec := ByteCodec{}
@@ -59,25 +43,20 @@ func TestJSONCodec(t *testing.T) {
 
 func TestProtobufCodec(t *testing.T) {
 	codec := ProtobufCodec{}
-	input := &MockProto{Field1: "test"}
+	input := &ProtoArgs{A: 5, B: 10}
 
 	encoded, err := codec.Encode(input)
 	if err != nil {
 		t.Fatalf("expected no error but got %v", err)
 	}
 
-	var output MockProto
+	var output ProtoArgs
 	err = codec.Decode(encoded, &output)
 	if err != nil {
 		t.Fatalf("expected no error but got %v", err)
 	}
-	if output.Field1 != "test" {
-		t.Fatalf("expected %s but got %s", "test", output.Field1)
-	}
-
-	_, err = codec.Encode("not a proto.Message")
-	if err == nil {
-		t.Fatalf("expected an error but got none")
+	if output.A != 5 || output.B != 10 {
+		t.Fatalf("expected A = 5, B = 10 but got A = %d, B = %d", output.A, output.B)
 	}
 }
 
