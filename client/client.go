@@ -254,26 +254,26 @@ func (client *Client) receive() {
 
 			call.done()
 		}
+	}
 
-		client.mu.Lock()
-		client.shutdown = true
-		closing := client.closing
-		if err == io.EOF {
-			if closing {
-				err = ErrShutdown
-			} else {
-				err = io.ErrUnexpectedEOF
-			}
+	client.mu.Lock()
+	client.shutdown = true
+	closing := client.closing
+	if err == io.EOF {
+		if closing {
+			err = ErrShutdown
+		} else {
+			err = io.ErrUnexpectedEOF
 		}
+	}
 
-		for _, call := range client.pending {
-			call.Error = err
-			call.done()
-		}
+	for _, call := range client.pending {
+		call.Error = err
+		call.done()
+	}
 
-		client.mu.Unlock()
-		if err != io.EOF && !closing {
-			log.Error("mrpc: client protocol error:", err)
-		}
+	client.mu.Unlock()
+	if err != io.EOF && !closing {
+		log.Error("mrpc: client protocol error:", err)
 	}
 }
