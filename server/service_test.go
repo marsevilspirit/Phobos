@@ -29,7 +29,7 @@ func TestRegisterAndCall(t *testing.T) {
 	server := &Server{}
 
 	// 注册服务
-	err := server.Register(&TestService{})
+	err := server.RegisterWithName("TestService", &TestService{}, "")
 	if err != nil {
 		t.Fatalf("Failed to register service: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestRegisterAndCall(t *testing.T) {
 
 func TestMethodWithEmptyName(t *testing.T) {
 	server := &Server{}
-	err := server.Register(&TestService{})
+	err := server.RegisterWithName("TestService", &TestService{}, "")
 	if err != nil {
 		t.Fatalf("Failed to register service: %v", err)
 	}

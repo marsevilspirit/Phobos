@@ -7,7 +7,7 @@ import (
 
 func main() {
 	server := server.Server{}
-	server.Register(new(helloworld.HelloWorld))
+	server.RegisterWithName("HelloWorld", new(helloworld.HelloWorld), "")
 	server.Serve("tcp", "127.0.0.1:50000")
 	defer server.Close()
 }

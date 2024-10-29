@@ -33,25 +33,25 @@ func (t *PBArith) Mul(ctx context.Context, args *ProtoArgs, reply *ProtoReply) e
 }
 
 func TestClient_IT(t *testing.T) {
-	server := server.Server{}
-	server.RegisterWithName("Arith", new(Arith))
-	server.RegisterWithName("PBArith", new(PBArith))
-	go server.Serve("tcp", "127.0.0.1:0")
-	defer server.Close()
+	s := server.Server{}
+	s.RegisterWithName("Arith", new(Arith), "")
+	s.RegisterWithName("PBArith", new(PBArith), "")
+	go s.Serve("tcp", "127.0.0.1:0")
+	defer s.Close()
 	time.Sleep(500 * time.Millisecond)
 
-	addr := server.Address().String()
+	addr := s.Address().String()
 
-	client := &Client{
+	c := &Client{
 		SerializeType: protocol.JSON,
 		CompressType:  protocol.Gzip,
 	}
 
-	err := client.Connect("tcp", addr)
+	err := c.Connect("tcp", addr)
 	if err != nil {
 		t.Fatalf("failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer c.Close()
 
 	args := &Args{
 		A: 10,
@@ -59,7 +59,7 @@ func TestClient_IT(t *testing.T) {
 	}
 
 	reply := &Reply{}
-	err = client.Call(context.Background(), "Arith", "Mul", args, reply)
+	err = c.Call(context.Background(), "Arith", "Mul", args, reply)
 	if err != nil {
 		t.Fatalf("failed to call: %v", err)
 	}
@@ -68,14 +68,14 @@ func TestClient_IT(t *testing.T) {
 		t.Fatalf("expect 200 but got %d", reply.C)
 	}
 
-	err = client.Call(context.Background(), "Arith", "Add", args, reply)
+	err = c.Call(context.Background(), "Arith", "Add", args, reply)
 	if err == nil {
 		t.Fatal("expect an error but got nil")
 	}
 
-	client.SerializeType = protocol.MsgPack
+	c.SerializeType = protocol.MsgPack
 	reply = &Reply{}
-	err = client.Call(context.Background(), "Arith", "Mul", args, reply)
+	err = c.Call(context.Background(), "Arith", "Mul", args, reply)
 	if err != nil {
 		t.Fatalf("failed to call: %v", err)
 	}
@@ -84,14 +84,14 @@ func TestClient_IT(t *testing.T) {
 		t.Fatalf("expect 200 but got %d", reply.C)
 	}
 
-	client.SerializeType = protocol.ProtoBuffer
+	c.SerializeType = protocol.ProtoBuffer
 
 	pbArgs := &ProtoArgs{
 		A: 10,
 		B: 20,
 	}
 	pbReply := &ProtoReply{}
-	err = client.Call(context.Background(), "PBArith", "Mul", pbArgs, pbReply)
+	err = c.Call(context.Background(), "PBArith", "Mul", pbArgs, pbReply)
 	if err != nil {
 		t.Fatalf("failed to call: %v", err)
 	}

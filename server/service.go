@@ -39,11 +39,12 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 	return ast.IsExported(t.Name()) || t.PkgPath() == ""
 }
 
-func (s *Server) Register(rcvr interface{}) error {
+func (s *Server) Register(rcvr interface{}, metadata string) error {
 	return s.register(rcvr, "", false)
 }
 
-func (s *Server) RegisterWithName(name string, rcvr interface{}) error {
+func (s *Server) RegisterWithName(name string, rcvr interface{}, metadata string) error {
+	s.Plugins.DoRegister(name, rcvr, metadata)
 	return s.register(rcvr, name, true)
 }
 
