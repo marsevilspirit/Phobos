@@ -13,7 +13,7 @@ import (
 	"github.com/marsevilspirit/m_RPC/share"
 )
 
-func (c *Client) Connect(network, address string, opts ...interface{}) error {
+func (c *Client) Connect(network, address string) error {
 	var conn net.Conn
 	var err error
 
