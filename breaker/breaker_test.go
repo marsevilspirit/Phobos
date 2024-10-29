@@ -44,15 +44,15 @@ func TestCounts(t *testing.T) {
 }
 
 func TestBreaker(t *testing.T) {
-	cb := NewBreaker[int](Settings{
+	cb := NewBreaker(Settings{
 		Name: "test-breaker",
 	})
 
 	assert.Equal(t, cb.Name(), "test-breaker")
 	assert.Equal(t, cb.State(), StateClosed)
 
-	// Test request and response handling
-	result, err := cb.Execute(func() (int, error) {
+	// 测试请求和响应处理
+	result, err := cb.Execute(func() (interface{}, error) {
 		return 42, nil
 	})
 	assert.Nil(t, err)
@@ -60,15 +60,15 @@ func TestBreaker(t *testing.T) {
 	assert.Equal(t, uint32(1), cb.Counts().Requests)
 	assert.Equal(t, uint32(1), cb.Counts().TotalSuccesses)
 
-	// Test failure handling
-	cb.Execute(func() (int, error) {
+	// 测试故障处理
+	cb.Execute(func() (interface{}, error) {
 		return 0, errors.New("error")
 	})
 	assert.Equal(t, uint32(1), cb.Counts().TotalFailures)
 }
 
 func TestTwoStepBreaker(t *testing.T) {
-	tb := NewTwoStepBreaker[int](Settings{
+	tb := NewTwoStepBreaker(Settings{
 		Name: "test-two-step-breaker",
 	})
 
@@ -89,43 +89,43 @@ func TestTwoStepBreaker(t *testing.T) {
 
 func TestCircuitBreakerTripAndReset(t *testing.T) {
 	// 创建一个Breaker实例
-	b := NewBreaker[int](Settings{
+	b := NewBreaker(Settings{
 		Name: "test-breaker",
 		ReadyToTrip: func(counts Counts) bool {
-			return counts.ConsecutiveFailures > 2 // 设置阈值为2次连续失败
+			return counts.ConsecutiveFailures > 2 // 设置阈值为连续失败2次
 		},
 		Timeout: 1 * time.Second,
 	})
 
 	assert.Equal(t, b.State(), StateClosed)
 
-	// 模拟3次失败的RPC请求，检测熔断状态
+	// 模拟3次失败的请求，检测熔断状态
 	for i := 0; i < 3; i++ {
-		result, err := b.Execute(func() (int, error) {
+		result, err := b.Execute(func() (interface{}, error) {
 			return 0, errors.New("RPC error")
 		})
 		assert.NotNil(t, err)
-		assert.Equal(t, 0, result)
+		assert.Equal(t, 0, result) // 修改这个断言，期望返回值是0
 	}
 
 	// 检查Breaker是否进入Open状态
 	assert.Equal(t, b.State(), StateOpen)
 
-	// Try another request which should be immediately rejected
-	result, err := b.Execute(func() (int, error) {
+	// 尝试另一个请求，应立即被拒绝
+	result, err := b.Execute(func() (interface{}, error) {
 		return 1, nil
 	})
 	assert.Equal(t, err, ErrOpenState)
-	assert.Equal(t, 0, result)
+	assert.Nil(t, result)
 
 	// 模拟复位超时（time.Sleep），并进入Half-Open状态
-	time.Sleep(time.Duration(b.timeout)) // 等待超时结束
+	time.Sleep(b.timeout) // 等待超时结束
 
 	// 检查Breaker是否进入Half-Open状态
 	assert.Equal(t, b.State(), StateHalfOpen)
 
-	// 模拟成功的RPC请求，应该重新进入Closed状态
-	result, err = b.Execute(func() (int, error) {
+	// 模拟成功的请求，应该重新进入Closed状态
+	result, err = b.Execute(func() (interface{}, error) {
 		return 1, nil
 	})
 	assert.Nil(t, err)
@@ -137,17 +137,17 @@ func TestCircuitBreakerTripAndReset(t *testing.T) {
 
 func TestTwoStepCircuitBreakerTripAndReset(t *testing.T) {
 	// 创建一个TwoStepBreaker实例
-	tb := NewTwoStepBreaker[int](Settings{
+	tb := NewTwoStepBreaker(Settings{
 		Name: "test-two-step-breaker",
 		ReadyToTrip: func(counts Counts) bool {
-			return counts.ConsecutiveFailures > 2 // 设置阈值为2次连续失败
+			return counts.ConsecutiveFailures > 2 // 设置阈值为连续失败2次
 		},
 		Timeout: 1 * time.Second,
 	})
 
 	assert.Equal(t, tb.State(), StateClosed)
 
-	// 模拟3次失败的RPC请求，检测熔断状态
+	// 模拟3次失败的请求，检测熔断状态
 	for i := 0; i < 3; i++ {
 		done, err := tb.Allow()
 		assert.Nil(t, err)
@@ -168,7 +168,7 @@ func TestTwoStepCircuitBreakerTripAndReset(t *testing.T) {
 	// 检查TwoStepBreaker是否进入Half-Open状态
 	assert.Equal(t, tb.State(), StateHalfOpen)
 
-	// 模拟成功的RPC请求，应该重新进入Closed状态
+	// 模拟成功的请求，应该重新进入Closed状态
 	done, err = tb.Allow()
 	assert.Nil(t, err)
 	done(true) // 模拟成功

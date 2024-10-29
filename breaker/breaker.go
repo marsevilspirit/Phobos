@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// State 定义电路断路器的三种状态
 type State int
 
 const (
@@ -22,6 +23,7 @@ var (
 	ErrOpenState       = errors.New("circuit breaker is open")
 )
 
+// String 返回状态的字符串表示
 func (s State) String() string {
 	switch s {
 	case StateClosed:
@@ -35,12 +37,13 @@ func (s State) String() string {
 	}
 }
 
+// Counts 记录请求的统计数据
 type Counts struct {
 	Requests             uint32
 	TotalSuccesses       uint32
 	TotalFailures        uint32
-	ConsecutiveSuccesses uint32 // 连续成功次数
-	ConsecutiveFailures  uint32 // 连续失败次数
+	ConsecutiveSuccesses uint32
+	ConsecutiveFailures  uint32
 }
 
 func (c *Counts) onRequest() {
@@ -67,6 +70,7 @@ func (c *Counts) clear() {
 	c.ConsecutiveFailures = 0
 }
 
+// Settings 定义电路断路器的配置
 type Settings struct {
 	Name          string
 	MaxRequests   uint32
@@ -77,7 +81,8 @@ type Settings struct {
 	IsSuccessful  func(err error) bool
 }
 
-type Breaker[T any] struct {
+// Breaker 定义电路断路器的主体结构
+type Breaker struct {
 	name          string
 	maxRequests   uint32
 	interval      time.Duration
@@ -93,9 +98,9 @@ type Breaker[T any] struct {
 	expiry     time.Time
 }
 
-func NewBreaker[T any](st Settings) *Breaker[T] {
-	b := new(Breaker[T])
-
+// NewBreaker 创建一个新的电路断路器
+func NewBreaker(st Settings) *Breaker {
+	b := new(Breaker)
 	b.name = st.Name
 	b.onStateChange = st.OnStateChange
 
@@ -130,7 +135,6 @@ func NewBreaker[T any](st Settings) *Breaker[T] {
 	}
 
 	b.toNewGeneration(time.Now())
-
 	return b
 }
 
@@ -142,7 +146,7 @@ func defaultIsSuccessful(err error) bool {
 	return err == nil
 }
 
-func (b *Breaker[T]) toNewGeneration(now time.Time) {
+func (b *Breaker) toNewGeneration(now time.Time) {
 	b.generation++
 	b.counts.clear()
 
@@ -162,11 +166,11 @@ func (b *Breaker[T]) toNewGeneration(now time.Time) {
 	}
 }
 
-func (b *Breaker[T]) Name() string {
+func (b *Breaker) Name() string {
 	return b.name
 }
 
-func (b *Breaker[T]) State() State {
+func (b *Breaker) State() State {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -175,7 +179,7 @@ func (b *Breaker[T]) State() State {
 	return state
 }
 
-func (b *Breaker[T]) currentState(now time.Time) (State, uint64) {
+func (b *Breaker) currentState(now time.Time) (State, uint64) {
 	switch b.state {
 	case StateClosed:
 		if !b.expiry.IsZero() && b.expiry.Before(now) {
@@ -190,14 +194,13 @@ func (b *Breaker[T]) currentState(now time.Time) (State, uint64) {
 	return b.state, b.generation
 }
 
-func (b *Breaker[T]) setState(state State, now time.Time) {
+func (b *Breaker) setState(state State, now time.Time) {
 	if b.state == state {
 		return
 	}
 
 	prev := b.state
 	b.state = state
-
 	b.toNewGeneration(now)
 
 	if b.onStateChange != nil {
@@ -205,18 +208,17 @@ func (b *Breaker[T]) setState(state State, now time.Time) {
 	}
 }
 
-func (b *Breaker[T]) Counts() Counts {
+func (b *Breaker) Counts() Counts {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	return b.counts
 }
 
-func (b *Breaker[T]) Execute(req func() (T, error)) (T, error) {
+func (b *Breaker) Execute(req func() (interface{}, error)) (interface{}, error) {
 	generation, err := b.beforeRequest()
 	if err != nil {
-		var defaultValue T
-		return defaultValue, err
+		return nil, err
 	}
 
 	defer func() {
@@ -232,7 +234,7 @@ func (b *Breaker[T]) Execute(req func() (T, error)) (T, error) {
 	return result, err
 }
 
-func (b *Breaker[T]) beforeRequest() (uint64, error) {
+func (b *Breaker) beforeRequest() (uint64, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -249,7 +251,7 @@ func (b *Breaker[T]) beforeRequest() (uint64, error) {
 	return generation, nil
 }
 
-func (b *Breaker[T]) afterRequest(before uint64, success bool) {
+func (b *Breaker) afterRequest(before uint64, success bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -266,7 +268,7 @@ func (b *Breaker[T]) afterRequest(before uint64, success bool) {
 	}
 }
 
-func (b *Breaker[T]) onSuccess(state State, now time.Time) {
+func (b *Breaker) onSuccess(state State, now time.Time) {
 	switch state {
 	case StateClosed:
 		b.counts.onSuccess()
@@ -278,7 +280,7 @@ func (b *Breaker[T]) onSuccess(state State, now time.Time) {
 	}
 }
 
-func (b *Breaker[T]) onFailure(state State, now time.Time) {
+func (b *Breaker) onFailure(state State, now time.Time) {
 	switch state {
 	case StateClosed:
 		b.counts.onFailure()
@@ -290,29 +292,31 @@ func (b *Breaker[T]) onFailure(state State, now time.Time) {
 	}
 }
 
-type TwoStepBreaker[T any] struct {
-	b *Breaker[T]
+// TwoStepBreaker 提供一个两步的电路断路器接口
+type TwoStepBreaker struct {
+	b *Breaker
 }
 
-func NewTwoStepBreaker[T any](st Settings) *TwoStepBreaker[T] {
-	return &TwoStepBreaker[T]{
-		b: NewBreaker[T](st),
+// NewTwoStepBreaker 创建一个新的两步电路断路器
+func NewTwoStepBreaker(st Settings) *TwoStepBreaker {
+	return &TwoStepBreaker{
+		b: NewBreaker(st),
 	}
 }
 
-func (tb *TwoStepBreaker[T]) Name() string {
+func (tb *TwoStepBreaker) Name() string {
 	return tb.b.Name()
 }
 
-func (tb *TwoStepBreaker[T]) State() State {
+func (tb *TwoStepBreaker) State() State {
 	return tb.b.State()
 }
 
-func (tb *TwoStepBreaker[T]) Counts() Counts {
+func (tb *TwoStepBreaker) Counts() Counts {
 	return tb.b.Counts()
 }
 
-func (tb *TwoStepBreaker[T]) Allow() (done func(success bool), err error) {
+func (tb *TwoStepBreaker) Allow() (done func(success bool), err error) {
 	generation, err := tb.b.beforeRequest()
 	if err != nil {
 		return nil, err
@@ -322,3 +326,4 @@ func (tb *TwoStepBreaker[T]) Allow() (done func(success bool), err error) {
 		tb.b.afterRequest(generation, success)
 	}, nil
 }
+
