@@ -235,6 +235,17 @@ func (client *Client) send(ctx context.Context, call *Call) {
 			call.done()
 		}
 	}
+
+	if req.IsOneway() {
+		client.mu.Lock()
+		call = client.pending[seq]
+		delete(client.pending, seq)
+		client.mu.Unlock()
+		if call != nil {
+			call.done()
+		}
+	}
+
 }
 
 func (client *Client) receive() {
