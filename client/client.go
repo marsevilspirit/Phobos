@@ -10,11 +10,25 @@ import (
 	"sync"
 	"time"
 
+	"github.com/marsevilspirit/m_RPC/breaker"
 	"github.com/marsevilspirit/m_RPC/log"
 	"github.com/marsevilspirit/m_RPC/protocol"
 	"github.com/marsevilspirit/m_RPC/share"
 	"github.com/marsevilspirit/m_RPC/util"
 )
+
+type Breaker interface {
+	Execute(func() (interface{}, error)) (interface{}, error)
+}
+
+var defaultBreakerSettings = breaker.Settings{
+	Name:        "defaultBreakerSettings",
+	MaxRequests: 5,
+	Interval:    10 * time.Second,
+	Timeout:     30 * time.Second,
+}
+
+var defaultBreaker Breaker = breaker.NewBreaker(defaultBreakerSettings)
 
 var (
 	ErrShutdown        = errors.New("connection is shutdown")
@@ -67,6 +81,8 @@ type Client struct {
 	ConnectTimeout time.Duration
 	ReadTimeout    time.Duration
 	WriteTimeout   time.Duration
+
+	UseBreaker bool
 }
 
 var _ io.Closer = (*Client)(nil)
@@ -93,6 +109,16 @@ func (client *Client) Close() error {
 }
 
 func (client *Client) Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error {
+	if client.UseBreaker {
+		_, err := defaultBreaker.Execute(func() (interface{}, error) {
+			return nil, client.call(ctx, servicePath, serviceMethod, args, reply)
+		})
+		return err
+	} else {
+		return client.call(ctx, servicePath, serviceMethod, args, reply)
+	}
+}
+func (client *Client) call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error {
 	seq := new(uint64)
 	ctx = context.WithValue(ctx, seqKey{}, seq)
 	Done := client.Go(ctx, servicePath, serviceMethod, args, reply, make(chan *Call, 1)).Done
