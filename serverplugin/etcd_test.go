@@ -32,5 +32,4 @@ func TestEtcdRegistry(t *testing.T) {
 	if len(r.Services) != 1 {
 		t.Fatal("failed to register services in etcd")
 	}
-
 }

@@ -23,14 +23,13 @@ func init() {
 
 // EtcdRegisterPlugin implements etcd registry.
 type EtcdRegisterPlugin struct {
-	// service address, for example, tcp@127.0.0.1:8972
 	ServiceAddress string
-	// etcd addresses
+
 	EtcdServers []string
-	// base path for mrpc server, for example com/example/mrpc
+
 	BasePath string
 	Metrics  metrics.Registry
-	// Registered services
+
 	Services       []string
 	UpdateInterval time.Duration
 
@@ -49,8 +48,6 @@ func (p *EtcdRegisterPlugin) Start() error {
 	if p.BasePath[0] == '/' {
 		p.BasePath = p.BasePath[1:]
 	}
-
-	fmt.Println("p.BasePath:", p.BasePath)
 
 	err = kv.Put(p.BasePath, []byte("mrpc_path"), &store.WriteOptions{IsDir: true})
 	if err != nil && !strings.Contains(err.Error(), "Not a file") {
