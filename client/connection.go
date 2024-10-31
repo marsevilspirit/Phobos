@@ -25,11 +25,11 @@ func (c *Client) Connect(network, address string) error {
 	}
 
 	if err == nil && conn != nil {
-		if c.ReadTimeout != 0 {
-			conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
+		if c.option.ReadTimeout != 0 {
+			conn.SetReadDeadline(time.Now().Add(c.option.ReadTimeout))
 		}
-		if c.WriteTimeout != 0 {
-			conn.SetWriteDeadline(time.Now().Add(c.WriteTimeout))
+		if c.option.WriteTimeout != 0 {
+			conn.SetWriteDeadline(time.Now().Add(c.option.WriteTimeout))
 		}
 
 		c.Conn = conn
@@ -42,19 +42,19 @@ func (c *Client) Connect(network, address string) error {
 	return err
 }
 
-func newDirectTCPConn(c *Client, network, address string, opts ...interface{}) (net.Conn, error) {
+func newDirectTCPConn(c *Client, network, address string) (net.Conn, error) {
 	var conn net.Conn
 	var tlsConn *tls.Conn
 	var err error
 
-	if c != nil && c.TLSConfig != nil {
+	if c != nil && c.option.TLSConfig != nil {
 		dialer := &net.Dialer{
-			Timeout: c.ConnectTimeout,
+			Timeout: c.option.ConnectTimeout,
 		}
-		tlsConn, err = tls.DialWithDialer(dialer, network, address, c.TLSConfig)
+		tlsConn, err = tls.DialWithDialer(dialer, network, address, c.option.TLSConfig)
 		conn = net.Conn(tlsConn)
 	} else {
-		conn, err = net.DialTimeout(network, address, c.ConnectTimeout)
+		conn, err = net.DialTimeout(network, address, c.option.ConnectTimeout)
 	}
 
 	if err != nil {
@@ -82,15 +82,15 @@ func newDirectHTTPConn(c *Client, network, address string, opts ...interface{}) 
 	var tlsConn *tls.Conn
 	var err error
 
-	if c != nil && c.TLSConfig != nil {
+	if c != nil && c.option.TLSConfig != nil {
 		dialer := &net.Dialer{
-			Timeout: c.ConnectTimeout,
+			Timeout: c.option.ConnectTimeout,
 		}
-		tlsConn, err = tls.DialWithDialer(dialer, network, address, c.TLSConfig)
+		tlsConn, err = tls.DialWithDialer(dialer, network, address, c.option.TLSConfig)
 
 		conn = net.Conn(tlsConn)
 	} else {
-		conn, err = net.DialTimeout(network, address, c.ConnectTimeout)
+		conn, err = net.DialTimeout(network, address, c.option.ConnectTimeout)
 	}
 	if err != nil {
 		log.Errorf("failed to dial server: %v", err)

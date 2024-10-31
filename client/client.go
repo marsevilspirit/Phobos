@@ -17,6 +17,14 @@ import (
 	"github.com/marsevilspirit/m_RPC/util"
 )
 
+var DefaultOption = Option{
+	RPCPath:        share.DefaultRPCPath,
+	ConnectTimeout: 10 * time.Second,
+	Breaker:        defaultBreaker,
+	SerializeType:  protocol.MsgPack,
+	CompressType:   protocol.None,
+}
+
 type Breaker interface {
 	Execute(func() (interface{}, error)) (interface{}, error)
 }
@@ -63,26 +71,31 @@ func (call *Call) done() {
 type seqKey struct{}
 
 type Client struct {
-	TLSConfig *tls.Config
+	option Option
 
 	Conn net.Conn
 	r    *bufio.Reader
 	w    *bufio.Writer
-
-	SerializeType protocol.SerializeType
-	CompressType  protocol.CompressType
 
 	mu       sync.Mutex
 	seq      uint64
 	pending  map[uint64]*Call
 	closing  bool // closing 是用户主动关闭的
 	shutdown bool // shutdown 是error发生时调用的
+}
+
+type Option struct {
+	TLSConfig *tls.Config
+	RPCPath   string
 
 	ConnectTimeout time.Duration
 	ReadTimeout    time.Duration
 	WriteTimeout   time.Duration
 
-	UseBreaker bool
+	Breaker Breaker
+
+	SerializeType protocol.SerializeType
+	CompressType  protocol.CompressType
 }
 
 var _ io.Closer = (*Client)(nil)
@@ -109,8 +122,8 @@ func (client *Client) Close() error {
 }
 
 func (client *Client) Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error {
-	if client.UseBreaker {
-		_, err := defaultBreaker.Execute(func() (interface{}, error) {
+	if client.option.Breaker != nil {
+		_, err := client.option.Breaker.Execute(func() (interface{}, error) {
 			return nil, client.call(ctx, servicePath, serviceMethod, args, reply)
 		})
 		return err
@@ -172,7 +185,7 @@ func (client *Client) send(ctx context.Context, call *Call) {
 		return
 	}
 
-	codec := share.Codecs[client.SerializeType]
+	codec := share.Codecs[client.option.SerializeType]
 	if codec == nil {
 		call.Error = ErrUnspportedCodec
 		client.mu.Unlock()
@@ -196,7 +209,7 @@ func (client *Client) send(ctx context.Context, call *Call) {
 	req := protocol.NewMessage()
 	req.SetMessageType(protocol.Request)
 	req.SetSeq(seq)
-	req.SetSerializeType(client.SerializeType)
+	req.SetSerializeType(client.option.SerializeType)
 	req.Metadata[protocol.ServicePath] = call.ServicePath
 	req.Metadata[protocol.ServiceMethod] = call.ServiceMethod
 
@@ -208,7 +221,7 @@ func (client *Client) send(ctx context.Context, call *Call) {
 		return
 	}
 
-	if len(data) > 1024 && client.CompressType == protocol.Gzip {
+	if len(data) > 1024 && client.option.CompressType == protocol.Gzip {
 		data, err = util.Zip(data)
 		if err != nil {
 			call.Error = err
@@ -216,7 +229,7 @@ func (client *Client) send(ctx context.Context, call *Call) {
 			return
 		}
 
-		req.SetCompressType(client.CompressType)
+		req.SetCompressType(client.option.CompressType)
 	}
 
 	req.Payload = data

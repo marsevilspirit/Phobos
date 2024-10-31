@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -48,6 +49,7 @@ type xClient struct {
 	servers   map[string]string // 当前已知的服务器地址
 	discovery ServiceDiscovery  // 服务发现接口
 	selector  Selector
+	option    Option
 
 	servicePath   string
 	serviceMethod string
@@ -56,7 +58,7 @@ type xClient struct {
 }
 
 // NewXClient 工厂函数，用于创建 xClient 实例
-func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode SelectMode, discovery ServiceDiscovery) XClient {
+func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode SelectMode, discovery ServiceDiscovery, option Option) XClient {
 	// 初始化 xClient 结构体
 	client := &xClient{
 		Retries:       3,
@@ -65,10 +67,14 @@ func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode
 		discovery:     discovery,
 		servicePath:   servicePath,
 		serviceMethod: serviceMethod,
+		cachedClient:  make(map[string]*Client),
+		option:        option,
 	}
 
-	// 启动一个 Goroutine 来监控服务的变化
-	go client.watch()
+	ch := client.discovery.WatchService()
+	if ch != nil {
+		go client.watch(ch)
+	}
 
 	// 更新服务列表
 	servers := make(map[string]string)
@@ -83,8 +89,7 @@ func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode
 }
 
 // watch 方法，用于不断监听服务变化并更新服务器列表
-func (c *xClient) watch() {
-	ch := c.discovery.WatchService()
+func (c *xClient) watch(ch chan []*KVPair) {
 	for pairs := range ch {
 		servers := make(map[string]string)
 		for _, p := range pairs {
@@ -108,6 +113,12 @@ func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod s
 
 // getCachedClient 方法，根据服务器键获取缓存的客户端连接
 func (c *xClient) getCachedClient(k string) (*Client, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in f", r)
+		}
+	}()
+
 	c.mu.RLock()
 	client := c.cachedClient[k]
 	if client != nil {
@@ -116,6 +127,7 @@ func (c *xClient) getCachedClient(k string) (*Client, error) {
 			return client, nil
 		}
 	}
+	c.mu.RUnlock()
 
 	// 双检查，确保线程安全
 	c.mu.Lock()
@@ -123,7 +135,7 @@ func (c *xClient) getCachedClient(k string) (*Client, error) {
 	if client == nil {
 		network, addr := splitNetworkAndAddress(k)
 		client = &Client{
-			// TODO: 初始化这个客户端
+			option: c.option,
 		}
 		err := client.Connect(network, addr)
 		if err != nil {
@@ -277,7 +289,7 @@ func (c *xClient) Fork(ctx context.Context, args, reply interface{}) error {
 			err = client.Call(ctx, c.servicePath, c.serviceMethod, args, clonedReply)
 			done <- (err == nil)
 			if err == nil {
-				reflect.ValueOf(reply).Set(reflect.ValueOf(reply))
+				reflect.ValueOf(reply).Set(reflect.ValueOf(clonedReply))
 			}
 			return
 		}()
