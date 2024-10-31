@@ -3,8 +3,10 @@ package client
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	ex "github.com/marsevilspirit/m_RPC/errors"
 )
@@ -37,6 +39,7 @@ type ServiceDiscovery interface {
 
 // xClient 结构体实现 XClient 接口
 type xClient struct {
+	Retries      int
 	failMode     FailMode           // 失败处理模式
 	selectMode   SelectMode         // 选择处理模式
 	cachedClient map[string]*Client // 缓存的客户端连接
@@ -56,6 +59,7 @@ type xClient struct {
 func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode SelectMode, discovery ServiceDiscovery) XClient {
 	// 初始化 xClient 结构体
 	client := &xClient{
+		Retries:       3,
 		failMode:      failMode,
 		selectMode:    selectMode,
 		discovery:     discovery,
@@ -161,20 +165,144 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 		return ErrXClientShutdown
 	}
 
+	var err error
+
 	client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod)
 	if err != nil {
 		return err
 	}
 
-	return client.Call(ctx, c.servicePath, c.serviceMethod, args, reply)
+	switch c.failMode {
+	case Failtry:
+		retries := c.Retries
+		for retries > 0 {
+			retries--
+			err = client.call(ctx, c.servicePath, c.serviceMethod, args, reply)
+		}
+		return err
+	case Failover:
+		retries := c.Retries
+		for retries > 0 {
+			retries--
+			err = client.call(ctx, c.servicePath, c.serviceMethod, args, reply)
+			if err == nil {
+				return nil
+			}
+
+			client, err = c.selectClient(ctx, c.servicePath, c.serviceMethod)
+			if err != nil {
+				return err
+			}
+		}
+		return err
+	default: // Failfast
+		return client.call(ctx, c.servicePath, c.serviceMethod, args, reply)
+	}
 }
 
 func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}) error {
-	return nil
+	var clients []*Client
+
+	c.mu.RLock()
+	for k := range c.servers {
+		client, err := c.getCachedClient(k)
+		if err != nil {
+			c.mu.RUnlock()
+			return err
+		}
+		clients = append(clients, client)
+	}
+	c.mu.RUnlock()
+
+	if len(clients) == 0 {
+		return ErrXClientNoServer
+	}
+
+	var err error
+	l := len(clients)
+	done := make(chan bool, l)
+	for _, client := range clients {
+		client := client
+		go func() {
+			err = client.Call(ctx, c.servicePath, c.serviceMethod, args, reply)
+			done <- (err == nil)
+		}()
+	}
+
+	timeout := time.After(time.Minute)
+
+check:
+	for {
+		select {
+		case result := <-done:
+			l--
+			if l == 0 || !result {
+				break check
+			}
+		case <-timeout:
+			break check
+		}
+	}
+
+	return err
 }
 
 func (c *xClient) Fork(ctx context.Context, args, reply interface{}) error {
-	return nil
+	var clients []*Client
+
+	c.mu.RLock()
+	for k := range c.servers {
+		client, err := c.getCachedClient(k)
+		if err != nil {
+			c.mu.RUnlock()
+			return err
+		}
+
+		clients = append(clients, client)
+	}
+	c.mu.RUnlock()
+
+	if len(clients) == 0 {
+		return ErrXClientNoServer
+	}
+
+	var err error
+	l := len(clients)
+	done := make(chan bool, l)
+	for _, client := range clients {
+		client := client
+		go func() {
+			// 代码中只有在调用成功（err == nil）时才会更新原始的 reply 这样可以确保只有成功的调用结果才会被保存
+			clonedReply := reflect.New(reflect.ValueOf(reply).Elem().Type()).Interface()
+			err = client.Call(ctx, c.servicePath, c.serviceMethod, args, clonedReply)
+			done <- (err == nil)
+			if err == nil {
+				reflect.ValueOf(reply).Set(reflect.ValueOf(reply))
+			}
+			return
+		}()
+	}
+
+	timeout := time.After(time.Minute)
+
+check:
+	for {
+		select {
+		case result := <-done:
+			l--
+			if result {
+				return nil
+			}
+			if l == 0 { // all returns or some one returns an error
+				break check
+			}
+
+		case <-timeout:
+			break check
+		}
+	}
+
+	return err
 }
 
 // Close 方法关闭客户端，释放资源
