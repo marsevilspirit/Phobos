@@ -11,11 +11,14 @@ import (
 
 var (
 	ErrXClientShutdown = errors.New("xClient is shut down")
+	ErrXClientNoServer = errors.New("xClient can not found any server")
 )
 
 type XClient interface {
-	Go(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, done chan *Call) (*Call, error)
-	Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error
+	Go(ctx context.Context, args, reply interface{}, done chan *Call) (*Call, error)
+	Call(ctx context.Context, args, reply interface{}) error
+	Broadcast(ctx context.Context, args, reply interface{}) error
+	Fork(ctx context.Context, args, reply interface{}) error
 	Close() error
 }
 
@@ -41,17 +44,23 @@ type xClient struct {
 	mu        sync.RWMutex      // 读写锁，用于保护共享资源的并发访问
 	servers   map[string]string // 当前已知的服务器地址
 	discovery ServiceDiscovery  // 服务发现接口
+	selector  Selector
+
+	servicePath   string
+	serviceMethod string
 
 	isShutdown bool // 客户端是否已关闭的标志
 }
 
 // NewXClient 工厂函数，用于创建 xClient 实例
-func NewXClient(failMode FailMode, selectMode SelectMode, discovery ServiceDiscovery) XClient {
+func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode SelectMode, discovery ServiceDiscovery) XClient {
 	// 初始化 xClient 结构体
 	client := &xClient{
-		failMode:   failMode,
-		selectMode: selectMode,
-		discovery:  discovery,
+		failMode:      failMode,
+		selectMode:    selectMode,
+		discovery:     discovery,
+		servicePath:   servicePath,
+		serviceMethod: serviceMethod,
 	}
 
 	// 启动一个 Goroutine 来监控服务的变化
@@ -64,6 +73,7 @@ func NewXClient(failMode FailMode, selectMode SelectMode, discovery ServiceDisco
 		servers[p.Key] = p.Value
 	}
 	client.servers = servers
+	client.selector = newSelector(selectMode, servers)
 
 	return client
 }
@@ -83,9 +93,11 @@ func (c *xClient) watch() {
 }
 
 // selectClient 方法，用于根据选择模式选择客户端
-func (c *xClient) selectClient() (*Client, error) {
-	// TODO: 根据选择模式获取服务器键
-	k := ""
+func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod string) (*Client, error) {
+	k := c.selector.Select(ctx, servicePath, serviceMethod)
+	if k == "" {
+		return nil, ErrXClientNoServer
+	}
 
 	return c.getCachedClient(k)
 }
@@ -132,29 +144,37 @@ func splitNetworkAndAddress(server string) (string, string) {
 }
 
 // Go 方法实现异步调用 RPC
-func (c *xClient) Go(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, done chan *Call) (*Call, error) {
+func (c *xClient) Go(ctx context.Context, args, reply interface{}, done chan *Call) (*Call, error) {
 	if c.isShutdown {
 		return nil, ErrXClientShutdown
 	}
-	client, err := c.selectClient()
+	client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod)
 	if err != nil {
 		return nil, err
 	}
-	return client.Go(ctx, servicePath, serviceMethod, args, reply, done), nil
+	return client.Go(ctx, c.servicePath, c.serviceMethod, args, reply, done), nil
 }
 
 // Call 方法实现同步调用 RPC，通过调用 Go 方法并等待结果
-func (c *xClient) Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error {
+func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
 	}
 
-	client, err := c.selectClient()
+	client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod)
 	if err != nil {
 		return err
 	}
 
-	return client.Call(ctx, servicePath, serviceMethod, args, reply)
+	return client.Call(ctx, c.servicePath, c.serviceMethod, args, reply)
+}
+
+func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}) error {
+	return nil
+}
+
+func (c *xClient) Fork(ctx context.Context, args, reply interface{}) error {
+	return nil
 }
 
 // Close 方法关闭客户端，释放资源
@@ -176,4 +196,3 @@ func (c *xClient) Close() error {
 	}
 	return nil
 }
-
