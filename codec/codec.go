@@ -3,6 +3,7 @@ package codec
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/vmihailenco/msgpack/v5"
 	pb "google.golang.org/protobuf/proto"
@@ -20,12 +21,17 @@ func (c ByteCodec) Encode(i interface{}) ([]byte, error) {
 		return data, nil
 	}
 
+	if data, ok := i.(*[]byte); ok {
+		return *data, nil
+	}
+
 	//%T获取i的类型
 	return nil, fmt.Errorf("%T is not a []byte", i)
 }
 
 func (c ByteCodec) Decode(data []byte, i interface{}) error {
-	i = &data
+	v := reflect.Indirect(reflect.ValueOf(i))
+	v.SetBytes(data)
 	return nil
 }
 

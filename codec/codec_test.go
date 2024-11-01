@@ -1,25 +1,69 @@
 package codec
 
 import (
+	"reflect"
 	"testing"
 )
 
 func TestByteCodec(t *testing.T) {
 	codec := ByteCodec{}
-	input := []byte("test data")
 
-	encoded, err := codec.Encode(input)
-	if err != nil {
-		t.Fatalf("expected no error but got %v", err)
-	}
-	if string(encoded) != string(input) {
-		t.Fatalf("expected %s but got %s", input, encoded)
-	}
+	// 测试 Encode 和 Decode 的配合使用
+	t.Run("Encode and Decode", func(t *testing.T) {
+		// 原始数据
+		original := []byte{1, 2, 3, 4, 5}
 
-	_, err = codec.Encode("not a byte slice")
-	if err == nil {
-		t.Fatalf("expected an error but got none")
-	}
+		// 编码
+		encoded, err := codec.Encode(original)
+		if err != nil {
+			t.Errorf("Unexpected error during encoding: %v", err)
+		}
+
+		// 解码到新的切片
+		var decoded []byte
+		if err := codec.Decode(encoded, &decoded); err != nil {
+			t.Errorf("Unexpected error during decoding: %v", err)
+		}
+
+		// 验证解码后的数据是否与原始数据相同
+		if !reflect.DeepEqual(original, decoded) {
+			t.Errorf("Expected %v, but got %v", original, decoded)
+		}
+	})
+
+	t.Run("Encode into *[]byte and Decode", func(t *testing.T) {
+		// 原始数据
+		original := &([]byte{6, 7, 8, 9, 10})
+
+		// 编码
+		encoded, err := codec.Encode(original)
+		if err != nil {
+			t.Errorf("Unexpected error during encoding: %v", err)
+		}
+
+		// 解码到新的切片
+		var decoded []byte
+		if err := codec.Decode(encoded, &decoded); err != nil {
+			t.Errorf("Unexpected error during decoding: %v", err)
+		}
+
+		// 验证解码后的数据是否与原始数据相同
+		if !reflect.DeepEqual(*original, decoded) {
+			t.Errorf("Expected %v, but got %v", *original, decoded)
+		}
+	})
+
+	t.Run("Encode with invalid type", func(t *testing.T) {
+		input := 123 // 非 []byte 类型
+		_, err := codec.Encode(input)
+		if err == nil {
+			t.Error("Expected an error but got none")
+		}
+		expectedErrMsg := "int is not a []byte"
+		if err.Error() != expectedErrMsg {
+			t.Errorf("Expected error message to be '%s', but got '%s'", expectedErrMsg, err.Error())
+		}
+	})
 }
 
 func TestJSONCodec(t *testing.T) {
