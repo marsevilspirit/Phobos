@@ -55,6 +55,9 @@ type xClient struct {
 	serviceMethod string
 
 	isShutdown bool // 客户端是否已关闭的标志
+
+	Latitude  float64
+	Longitude float64
 }
 
 // NewXClient 工厂函数，用于创建 xClient 实例
@@ -102,8 +105,8 @@ func (c *xClient) watch(ch chan []*KVPair) {
 }
 
 // selectClient 方法，用于根据选择模式选择客户端
-func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod string) (*Client, error) {
-	k := c.selector.Select(ctx, servicePath, serviceMethod)
+func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod string, args interface{}) (*Client, error) {
+	k := c.selector.Select(ctx, servicePath, serviceMethod, args)
 	if k == "" {
 		return nil, ErrXClientNoServer
 	}
@@ -164,7 +167,7 @@ func (c *xClient) Go(ctx context.Context, args, reply interface{}, done chan *Ca
 	if c.isShutdown {
 		return nil, ErrXClientShutdown
 	}
-	client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod)
+	client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +182,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 
 	var err error
 
-	client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod)
+	client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
 	if err != nil {
 		return err
 	}
@@ -201,7 +204,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 				return nil
 			}
 
-			client, err = c.selectClient(ctx, c.servicePath, c.serviceMethod)
+			client, err = c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
 			if err != nil {
 				return err
 			}
