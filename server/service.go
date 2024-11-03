@@ -44,6 +44,9 @@ func (s *Server) Register(rcvr interface{}, metadata string) error {
 }
 
 func (s *Server) RegisterWithName(name string, rcvr interface{}, metadata string) error {
+	if s.Plugins == nil {
+		s.Plugins = &pluginContainer{}
+	}
 	s.Plugins.DoRegister(name, rcvr, metadata)
 	return s.register(rcvr, name, true)
 }

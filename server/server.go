@@ -55,9 +55,15 @@ type Server struct {
 
 	Options map[string]interface{}
 
-	Plugins pluginContainer
+	Plugins PluginContainer
 
 	AuthFunc func(req *protocol.Message, token string) error
+}
+
+func NewServer(options map[string]interface{}) *Server {
+	return &Server{
+		Plugins: &pluginContainer{},
+	}
 }
 
 func (s *Server) Address() net.Addr {
@@ -98,6 +104,10 @@ func (s *Server) Serve(network, address string) (err error) {
 
 func (s *Server) serveListener(ln net.Listener) error {
 	s.ln = ln
+
+	if s.Plugins == nil {
+		s.Plugins = &pluginContainer{}
+	}
 
 	var tempDelay time.Duration
 
@@ -155,6 +165,10 @@ func (s *Server) serveListener(ln net.Listener) error {
 
 func (s *Server) serveByHTTP(ln net.Listener, rpcPath string) {
 	s.ln = ln
+
+	if s.Plugins == nil {
+		s.Plugins = &pluginContainer{}
+	}
 
 	if rpcPath == "" {
 		rpcPath = share.DefaultRPCPath
