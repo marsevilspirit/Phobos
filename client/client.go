@@ -211,7 +211,9 @@ func (client *Client) send(ctx context.Context, call *Call) {
 	req.SetMessageType(protocol.Request)
 	req.SetSeq(seq)
 	req.SetSerializeType(client.option.SerializeType)
-	req.Metadata = call.Metadata
+	if call.Metadata != nil {
+		req.Metadata = call.Metadata
+	}
 	req.Metadata[protocol.ServicePath] = call.ServicePath
 	req.Metadata[protocol.ServiceMethod] = call.ServiceMethod
 
