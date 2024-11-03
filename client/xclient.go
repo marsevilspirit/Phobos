@@ -10,6 +10,7 @@ import (
 	"time"
 
 	ex "github.com/marsevilspirit/m_RPC/errors"
+	"github.com/marsevilspirit/m_RPC/share"
 )
 
 var (
@@ -18,10 +19,10 @@ var (
 )
 
 type XClient interface {
-	Go(ctx context.Context, args, reply interface{}, done chan *Call) (*Call, error)
-	Call(ctx context.Context, args, reply interface{}) error
-	Broadcast(ctx context.Context, args, reply interface{}) error
-	Fork(ctx context.Context, args, reply interface{}) error
+	Go(ctx context.Context, args, reply interface{}, metadata map[string]string, done chan *Call) (*Call, error)
+	Call(ctx context.Context, args, reply interface{}, metadata map[string]string) error
+	Broadcast(ctx context.Context, args, reply interface{}, metadata map[string]string) error
+	Fork(ctx context.Context, args, reply interface{}, metadata map[string]string) error
 	Close() error
 }
 
@@ -56,8 +57,10 @@ type xClient struct {
 
 	isShutdown bool // 客户端是否已关闭的标志
 
-	Latitude  float64
-	Longitude float64
+	auth string
+
+	// Latitude  float64
+	// Longitude float64
 }
 
 // NewXClient 工厂函数，用于创建 xClient 实例
@@ -86,9 +89,19 @@ func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode
 		servers[p.Key] = p.Value
 	}
 	client.servers = servers
-	client.selector = newSelector(selectMode, servers)
+	if selectMode != Closest {
+		client.selector = newSelector(selectMode, servers)
+	}
 
 	return client
+}
+
+func (c *xClient) SetGeoSelector(latitude, longitude float64) {
+	c.selector = newGeoSelector(c.servers, latitude, longitude)
+}
+
+func (c *xClient) Auth(auth string) {
+	c.auth = auth
 }
 
 // watch 方法，用于不断监听服务变化并更新服务器列表
@@ -163,21 +176,37 @@ func splitNetworkAndAddress(server string) (string, string) {
 }
 
 // Go 方法实现异步调用 RPC
-func (c *xClient) Go(ctx context.Context, args, reply interface{}, done chan *Call) (*Call, error) {
+func (c *xClient) Go(ctx context.Context, args, reply interface{}, metadata map[string]string, done chan *Call) (*Call, error) {
 	if c.isShutdown {
 		return nil, ErrXClientShutdown
 	}
+
+	if c.auth != "" {
+		if metadata == nil {
+			metadata = make(map[string]string)
+		}
+		metadata[share.AuthKey] = c.auth
+	}
+
 	client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
 	if err != nil {
 		return nil, err
 	}
-	return client.Go(ctx, c.servicePath, c.serviceMethod, args, reply, done), nil
+
+	return client.Go(ctx, c.servicePath, c.serviceMethod, args, reply, metadata, done), nil
 }
 
 // Call 方法实现同步调用 RPC，通过调用 Go 方法并等待结果
-func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
+func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata map[string]string) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
+	}
+
+	if c.auth != "" {
+		if metadata == nil {
+			metadata = make(map[string]string)
+		}
+		metadata[share.AuthKey] = c.auth
 	}
 
 	var err error
@@ -192,14 +221,14 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 		retries := c.Retries
 		for retries > 0 {
 			retries--
-			err = client.call(ctx, c.servicePath, c.serviceMethod, args, reply)
+			err = client.call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
 		}
 		return err
 	case Failover:
 		retries := c.Retries
 		for retries > 0 {
 			retries--
-			err = client.call(ctx, c.servicePath, c.serviceMethod, args, reply)
+			err = client.call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
 			if err == nil {
 				return nil
 			}
@@ -211,11 +240,22 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 		}
 		return err
 	default: // Failfast
-		return client.call(ctx, c.servicePath, c.serviceMethod, args, reply)
+		return client.call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
 	}
 }
 
-func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}) error {
+func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}, metadata map[string]string) error {
+	if c.isShutdown {
+		return ErrXClientShutdown
+	}
+
+	if c.auth != "" {
+		if metadata == nil {
+			metadata = make(map[string]string)
+		}
+		metadata[share.AuthKey] = c.auth
+	}
+
 	var clients []*Client
 
 	c.mu.RLock()
@@ -239,7 +279,7 @@ func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}) error 
 	for _, client := range clients {
 		client := client
 		go func() {
-			err = client.Call(ctx, c.servicePath, c.serviceMethod, args, reply)
+			err = client.Call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
 			done <- (err == nil)
 		}()
 	}
@@ -262,7 +302,18 @@ check:
 	return err
 }
 
-func (c *xClient) Fork(ctx context.Context, args, reply interface{}) error {
+func (c *xClient) Fork(ctx context.Context, args, reply interface{}, metadata map[string]string) error {
+	if c.isShutdown {
+		return ErrXClientShutdown
+	}
+
+	if c.auth != "" {
+		if metadata == nil {
+			metadata = make(map[string]string)
+		}
+		metadata[share.AuthKey] = c.auth
+	}
+
 	var clients []*Client
 
 	c.mu.RLock()
@@ -289,7 +340,7 @@ func (c *xClient) Fork(ctx context.Context, args, reply interface{}) error {
 		go func() {
 			// 代码中只有在调用成功（err == nil）时才会更新原始的 reply 这样可以确保只有成功的调用结果才会被保存
 			clonedReply := reflect.New(reflect.ValueOf(reply).Elem().Type()).Interface()
-			err = client.Call(ctx, c.servicePath, c.serviceMethod, args, clonedReply)
+			err = client.Call(ctx, c.servicePath, c.serviceMethod, args, clonedReply, metadata)
 			done <- (err == nil)
 			if err == nil {
 				reflect.ValueOf(reply).Set(reflect.ValueOf(clonedReply))

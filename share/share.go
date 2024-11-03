@@ -8,6 +8,9 @@ import (
 const (
 	// used by HTTP
 	DefaultRPCPath = "/_mrpc_"
+
+	// used by auth
+	AuthKey = "__AUTH"
 )
 
 var (

@@ -56,6 +56,8 @@ type Server struct {
 	Options map[string]interface{}
 
 	Plugins pluginContainer
+
+	AuthFunc func(req *protocol.Message, token string) error
 }
 
 func (s *Server) Address() net.Addr {
@@ -240,6 +242,12 @@ func (s *Server) readRequest(ctx context.Context, r io.Reader) (req *protocol.Me
 	s.Plugins.DoPreReadRequest(ctx)
 	req, err = protocol.Read(r)
 	s.Plugins.DoPostReadRequest(ctx, req, err)
+
+	// 验证身份
+	if s.AuthFunc != nil && err == nil {
+		token := req.Metadata[share.AuthKey]
+		err = s.AuthFunc(req, token)
+	}
 
 	return req, err
 }

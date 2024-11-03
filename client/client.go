@@ -121,20 +121,20 @@ func (client *Client) Close() error {
 	return client.Conn.Close()
 }
 
-func (client *Client) Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error {
+func (client *Client) Call(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}, metadata map[string]string) error {
 	if client.option.Breaker != nil {
 		_, err := client.option.Breaker.Execute(func() (interface{}, error) {
-			return nil, client.call(ctx, servicePath, serviceMethod, args, reply)
+			return nil, client.call(ctx, servicePath, serviceMethod, args, reply, metadata)
 		})
 		return err
 	} else {
-		return client.call(ctx, servicePath, serviceMethod, args, reply)
+		return client.call(ctx, servicePath, serviceMethod, args, reply, metadata)
 	}
 }
-func (client *Client) call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error {
+func (client *Client) call(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}, metadata map[string]string) error {
 	seq := new(uint64)
 	ctx = context.WithValue(ctx, seqKey{}, seq)
-	Done := client.Go(ctx, servicePath, serviceMethod, args, reply, make(chan *Call, 1)).Done
+	Done := client.Go(ctx, servicePath, serviceMethod, args, reply, metadata, make(chan *Call, 1)).Done
 
 	var err error
 	select {
@@ -156,12 +156,13 @@ func (client *Client) call(ctx context.Context, servicePath, serviceMethod strin
 	return err
 }
 
-func (client *Client) Go(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, done chan *Call) *Call {
+func (client *Client) Go(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}, metadata map[string]string, done chan *Call) *Call {
 	call := &Call{
 		ServicePath:   servicePath,
 		ServiceMethod: serviceMethod,
 		Args:          args,
 		Reply:         reply,
+		Metadata:      metadata,
 		Done:          done,
 	}
 
@@ -210,6 +211,7 @@ func (client *Client) send(ctx context.Context, call *Call) {
 	req.SetMessageType(protocol.Request)
 	req.SetSeq(seq)
 	req.SetSerializeType(client.option.SerializeType)
+	req.Metadata = call.Metadata
 	req.Metadata[protocol.ServicePath] = call.ServicePath
 	req.Metadata[protocol.ServiceMethod] = call.ServiceMethod
 

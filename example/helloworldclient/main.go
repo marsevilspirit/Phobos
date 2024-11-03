@@ -11,9 +11,13 @@ import (
 )
 
 func main() {
-	client := client.Client{
+	option := client.Option{
 		SerializeType: protocol.JSON,
 		CompressType:  protocol.Gzip,
+	}
+
+	client := client.Client{
+		option: option,
 	}
 
 	err := client.Connect("tcp", "127.0.0.1:50000")
