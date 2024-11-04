@@ -225,6 +225,10 @@ func (s *Server) serveConn(conn net.Conn) {
 
 		req, err := s.readRequest(ctx, r)
 		if err != nil {
+			if err == io.EOF {
+				log.Infof("mrpc: client disconnected: %v", conn.RemoteAddr())
+				return
+			}
 			log.Errorf("mrpc: failed to read request: %v", err)
 			return
 		}
