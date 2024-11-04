@@ -14,6 +14,8 @@ var (
 )
 
 func main() {
+	flag.Parse()
+
 	d := client.NewP2PDiscovery("tcp@"+*addr, "")
 	xclient := client.NewXClient("HelloWorld", "Greet", client.Failtry, client.RandomSelect, d, client.DefaultOption)
 	defer xclient.Close()
