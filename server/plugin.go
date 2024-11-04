@@ -59,6 +59,7 @@ type pluginContainer struct {
 func (p *pluginContainer) Add(plugin Plugin) {
 	p.plugins = append(p.plugins, plugin)
 }
+
 func (p *pluginContainer) Remove(plugin Plugin) {
 	if p.plugins == nil {
 		return

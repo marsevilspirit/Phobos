@@ -1,5 +1,3 @@
-// +build etcd
-
 package serverplugin
 
 import (
@@ -47,6 +45,7 @@ func (p *EtcdRegisterPlugin) Start() error {
 	}
 	p.kv = kv
 
+	// example: /mrpc_example => mrpc_example
 	if p.BasePath[0] == '/' {
 		p.BasePath = p.BasePath[1:]
 	}
@@ -69,11 +68,11 @@ func (p *EtcdRegisterPlugin) Start() error {
 				//set this same metrics for all services at this server
 				for _, name := range p.Services {
 					nodePath := fmt.Sprintf("%s/%s/%s", p.BasePath, name, p.ServiceAddress)
-					kvPaire, err := p.kv.Get(nodePath)
+					kvPair, err := p.kv.Get(nodePath)
 					if err != nil {
 						log.Infof("can't get data of node: %s, because of %v", nodePath, err.Error())
 					} else {
-						v, _ := url.ParseQuery(string(kvPaire.Value))
+						v, _ := url.ParseQuery(string(kvPair.Value))
 						v.Set("tps", string(data))
 						p.kv.Put(nodePath, []byte(v.Encode()), &store.WriteOptions{TTL: p.UpdateInterval * 2})
 					}
@@ -97,7 +96,7 @@ func (p *EtcdRegisterPlugin) HandleConnAccept(conn net.Conn) (net.Conn, bool) {
 
 // Register handles registering event.
 // this service is registered at BASE/serviceName/thisIpAddress node
-func (p *EtcdRegisterPlugin) Register(name string, rcvr interface{}, metadata ...string) (err error) {
+func (p *EtcdRegisterPlugin) Register(name string, rcvr interface{}, metadata string) (err error) {
 	if "" == strings.TrimSpace(name) {
 		err = errors.New("Register service `name` can't be empty")
 		return
