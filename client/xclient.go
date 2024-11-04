@@ -61,6 +61,8 @@ type xClient struct {
 
 	// Latitude  float64
 	// Longitude float64
+
+	Plugins PluginContainer
 }
 
 // NewXClient 工厂函数，用于创建 xClient 实例
@@ -92,6 +94,8 @@ func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode
 	if selectMode != Closest {
 		client.selector = newSelector(selectMode, servers)
 	}
+
+	client.Plugins = &pluginContainer{}
 
 	return client
 }
@@ -151,7 +155,8 @@ func (c *xClient) getCachedClient(k string) (*Client, error) {
 	if client == nil {
 		network, addr := splitNetworkAndAddress(k)
 		client = &Client{
-			option: c.option,
+			option:  c.option,
+			Plugins: c.Plugins,
 		}
 		err := client.Connect(network, addr)
 		if err != nil {
@@ -173,6 +178,13 @@ func splitNetworkAndAddress(server string) (string, string) {
 	}
 
 	return ss[0], ss[1]
+}
+
+func (c *xClient) wrapCall(ctx context.Context, client *Client, args interface{}, reply interface{}, metadata map[string]string) error {
+	c.Plugins.DoPreCall(ctx, c.servicePath, c.serviceMethod, args, metadata)
+	err := client.call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
+	c.Plugins.DoPostCall(ctx, c.servicePath, c.serviceMethod, args, reply, metadata, err)
+	return err
 }
 
 // Go 方法实现异步调用 RPC
@@ -221,14 +233,17 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata ma
 		retries := c.Retries
 		for retries > 0 {
 			retries--
-			err = client.call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
+			err = c.wrapCall(ctx, client, args, reply, metadata)
+			if err == nil {
+				return nil
+			}
 		}
 		return err
 	case Failover:
 		retries := c.Retries
 		for retries > 0 {
 			retries--
-			err = client.call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
+			err = c.wrapCall(ctx, client, args, reply, metadata)
 			if err == nil {
 				return nil
 			}
@@ -240,7 +255,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata ma
 		}
 		return err
 	default: // Failfast
-		return client.call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
+		return c.wrapCall(ctx, client, args, reply, metadata)
 	}
 }
 
@@ -279,7 +294,7 @@ func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}, metada
 	for _, client := range clients {
 		client := client
 		go func() {
-			err = client.Call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
+			err = c.wrapCall(ctx, client, args, reply, metadata)
 			done <- (err == nil)
 		}()
 	}
@@ -340,7 +355,7 @@ func (c *xClient) Fork(ctx context.Context, args, reply interface{}, metadata ma
 		go func() {
 			// 代码中只有在调用成功（err == nil）时才会更新原始的 reply 这样可以确保只有成功的调用结果才会被保存
 			clonedReply := reflect.New(reflect.ValueOf(reply).Elem().Type()).Interface()
-			err = client.Call(ctx, c.servicePath, c.serviceMethod, args, clonedReply, metadata)
+			err = c.wrapCall(ctx, client, args, clonedReply, metadata)
 			done <- (err == nil)
 			if err == nil {
 				reflect.ValueOf(reply).Set(reflect.ValueOf(clonedReply))

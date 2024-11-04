@@ -82,6 +82,8 @@ type Client struct {
 	pending  map[uint64]*Call
 	closing  bool // closing 是用户主动关闭的
 	shutdown bool // shutdown 是error发生时调用的
+
+	Plugins PluginContainer
 }
 
 type Option struct {
