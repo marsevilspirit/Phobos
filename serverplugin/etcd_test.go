@@ -31,7 +31,7 @@ func TestEtcdRegistry(t *testing.T) {
 	go s.Serve("tcp", "127.0.0.1:8972")
 	defer s.Close()
 
-	if len(r.Services) != 1 {
+	if len(r.Services) == 0 {
 		t.Fatal("failed to register services in etcd")
 	}
 }

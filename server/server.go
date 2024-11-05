@@ -238,12 +238,12 @@ func (s *Server) serveConn(conn net.Conn) {
 		}
 
 		go func() {
-			s.Plugins.DoPreWriteResponse(ctx, req)
-
 			res, err := s.handleRequest(ctx, req)
 			if err != nil {
 				log.Errorf("mrpc: failed to handle request: %v", err)
 			}
+
+			s.Plugins.DoPreWriteResponse(ctx, req)
 
 			if !req.IsOneway() {
 				res.WriteTo(w)
@@ -258,7 +258,10 @@ func (s *Server) serveConn(conn net.Conn) {
 
 func (s *Server) readRequest(ctx context.Context, r io.Reader) (req *protocol.Message, err error) {
 	s.Plugins.DoPreReadRequest(ctx)
-	req, err = protocol.Read(r)
+
+	req = protocol.NewMessage()
+	err = req.Decode(r)
+
 	s.Plugins.DoPostReadRequest(ctx, req, err)
 
 	// 验证身份
