@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -14,11 +13,15 @@ import (
 )
 
 var (
-	ErrXClientShutdown = errors.New("xClient is shut down")
-	ErrXClientNoServer = errors.New("xClient can not found any server")
+	ErrXClientShutdown   = errors.New("xClient is shut down")
+	ErrXClientNoServer   = errors.New("xClient can not found any server")
+	ErrServerUnavailable = errors.New("selected server is unavilable")
 )
 
 type XClient interface {
+	SetPlugins(plugins PluginContainer)
+	SetGeoSelector(latitude, longitude float64)
+	Auth(auth string)
 	Go(ctx context.Context, args, reply interface{}, metadata map[string]string, done chan *Call) (*Call, error)
 	Call(ctx context.Context, args, reply interface{}, metadata map[string]string) error
 	Broadcast(ctx context.Context, args, reply interface{}, metadata map[string]string) error
@@ -41,7 +44,6 @@ type ServiceDiscovery interface {
 
 // xClient 结构体实现 XClient 接口
 type xClient struct {
-	Retries      int
 	failMode     FailMode           // 失败处理模式
 	selectMode   SelectMode         // 选择处理模式
 	cachedClient map[string]*Client // 缓存的客户端连接
@@ -69,7 +71,6 @@ type xClient struct {
 func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode SelectMode, discovery ServiceDiscovery, option Option) XClient {
 	// 初始化 xClient 结构体
 	client := &xClient{
-		Retries:       3,
 		failMode:      failMode,
 		selectMode:    selectMode,
 		discovery:     discovery,
@@ -100,6 +101,10 @@ func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode
 	return client
 }
 
+func (c *xClient) SetPlugins(plugins PluginContainer) {
+	c.Plugins = plugins
+}
+
 func (c *xClient) SetGeoSelector(latitude, longitude float64) {
 	c.selector = newGeoSelector(c.servers, latitude, longitude)
 }
@@ -122,23 +127,19 @@ func (c *xClient) watch(ch chan []*KVPair) {
 }
 
 // selectClient 方法，用于根据选择模式选择客户端
-func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod string, args interface{}) (*Client, error) {
+func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod string, args interface{}) (string, *Client, error) {
 	k := c.selector.Select(ctx, servicePath, serviceMethod, args)
 	if k == "" {
-		return nil, ErrXClientNoServer
+		return "", nil, ErrXClientNoServer
 	}
 
-	return c.getCachedClient(k)
+	client, err := c.getCachedClient(k)
+
+	return k, client, err
 }
 
 // getCachedClient 方法，根据服务器键获取缓存的客户端连接
 func (c *xClient) getCachedClient(k string) (*Client, error) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered in f", r)
-		}
-	}()
-
 	c.mu.RLock()
 	client := c.cachedClient[k]
 	if client != nil {
@@ -181,6 +182,10 @@ func splitNetworkAndAddress(server string) (string, string) {
 }
 
 func (c *xClient) wrapCall(ctx context.Context, client *Client, args interface{}, reply interface{}, metadata map[string]string) error {
+	if client == nil {
+		return ErrServerUnavailable
+	}
+
 	c.Plugins.DoPreCall(ctx, c.servicePath, c.serviceMethod, args, metadata)
 	err := client.call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
 	c.Plugins.DoPostCall(ctx, c.servicePath, c.serviceMethod, args, reply, metadata, err)
@@ -200,7 +205,7 @@ func (c *xClient) Go(ctx context.Context, args, reply interface{}, metadata map[
 		metadata[share.AuthKey] = c.auth
 	}
 
-	client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
+	_, client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
 	if err != nil {
 		return nil, err
 	}
@@ -223,24 +228,25 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata ma
 
 	var err error
 
-	client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
+	k, client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
 	if err != nil {
 		return err
 	}
 
 	switch c.failMode {
 	case Failtry:
-		retries := c.Retries
+		retries := c.option.Retries
 		for retries > 0 {
 			retries--
 			err = c.wrapCall(ctx, client, args, reply, metadata)
 			if err == nil {
 				return nil
 			}
+			client, err = c.getCachedClient(k)
 		}
 		return err
 	case Failover:
-		retries := c.Retries
+		retries := c.option.Retries
 		for retries > 0 {
 			retries--
 			err = c.wrapCall(ctx, client, args, reply, metadata)
@@ -248,11 +254,9 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata ma
 				return nil
 			}
 
-			client, err = c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
-			if err != nil {
-				return err
-			}
+			k, client, err = c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
 		}
+
 		return err
 	default: // Failfast
 		return c.wrapCall(ctx, client, args, reply, metadata)

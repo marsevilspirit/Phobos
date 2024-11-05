@@ -29,10 +29,6 @@ func NewEtcdDiscovery(basePath string, etcdAddr []string) ServiceDiscovery {
 		panic(err)
 	}
 
-	if basePath[0] == '/' {
-		basePath = basePath[1:]
-	}
-
 	// mrpc_example/HelloWorld
 	d := &EtcdDiscovery{basePath: basePath, kv: kv}
 	go d.watch()
@@ -91,8 +87,28 @@ func (d *EtcdDiscovery) watch() {
 
 	for ps := range c {
 		var pairs []*KVPair
+		var prefix string
 		for _, p := range ps {
-			pairs = append(pairs, &KVPair{Key: p.Key, Value: string(p.Value)})
+			if prefix == "" {
+				if strings.HasPrefix(p.Key, "/") {
+					if strings.HasPrefix(d.basePath, "/") {
+						prefix = d.basePath + "/"
+					} else {
+						prefix = "/" + d.basePath + "/"
+					}
+				} else {
+					if strings.HasPrefix(d.basePath, "/") {
+						prefix = d.basePath[1:] + "/"
+					} else {
+						prefix = d.basePath + "/"
+					}
+				}
+			}
+			if p.Key == prefix[:len(prefix)-1] || !strings.HasPrefix(p.Key, prefix) {
+				continue
+			}
+			k := strings.TrimPrefix(p.Key, prefix)
+			pairs = append(pairs, &KVPair{Key: k, Value: string(p.Value)})
 		}
 		d.pairs = pairs
 

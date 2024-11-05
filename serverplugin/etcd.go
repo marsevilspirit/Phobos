@@ -47,11 +47,6 @@ func (p *EtcdRegisterPlugin) Start() error {
 	}
 	p.kv = kv
 
-	// example: /mrpc_example => mrpc_example
-	if p.BasePath[0] == '/' {
-		p.BasePath = p.BasePath[1:]
-	}
-
 	err = kv.Put(p.BasePath, []byte("mrpc_path"), &store.WriteOptions{IsDir: true})
 	if err != nil && !strings.Contains(err.Error(), "Not a file") {
 		log.Errorf("cannot create etcd path %s: %v", p.BasePath, err)
@@ -113,9 +108,6 @@ func (p *EtcdRegisterPlugin) Register(name string, rcvr interface{}, metadata st
 		p.kv = kv
 	}
 
-	if p.BasePath[0] == '/' {
-		p.BasePath = p.BasePath[1:]
-	}
 	err = p.kv.Put(p.BasePath, []byte("mrpc_path"), &store.WriteOptions{IsDir: true})
 	if err != nil && !strings.Contains(err.Error(), "Not a file") {
 		log.Errorf("cannot create etcd path %s: %v", p.BasePath, err)

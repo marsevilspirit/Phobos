@@ -18,6 +18,7 @@ import (
 )
 
 var DefaultOption = Option{
+	Retries:        3,
 	RPCPath:        share.DefaultRPCPath,
 	ConnectTimeout: 10 * time.Second,
 	Breaker:        defaultBreaker,
@@ -87,6 +88,8 @@ type Client struct {
 }
 
 type Option struct {
+	Retries int
+
 	TLSConfig *tls.Config
 	RPCPath   string
 
