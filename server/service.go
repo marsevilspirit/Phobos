@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"go/ast"
 	"reflect"
 	"sync"
@@ -176,7 +177,13 @@ func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
 	return methods
 }
 
-func (s *service) call(ctx context.Context, mtype *methodType, argv, replyv reflect.Value) error {
+func (s *service) call(ctx context.Context, mtype *methodType, argv, replyv reflect.Value) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("internal error: %v", r)
+		}
+	}()
+
 	f := mtype.method.Func
 
 	returnValues := f.Call([]reflect.Value{s.rcvr, reflect.ValueOf(ctx), argv, replyv})

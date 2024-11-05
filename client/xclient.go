@@ -242,7 +242,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata ma
 			if err == nil {
 				return nil
 			}
-			client, err = c.getCachedClient(k)
+			client, _ = c.getCachedClient(k)
 		}
 		return err
 	case Failover:
@@ -254,7 +254,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata ma
 				return nil
 			}
 
-			k, client, err = c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
+			k, client, _ = c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
 		}
 
 		return err
