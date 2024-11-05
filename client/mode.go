@@ -8,7 +8,7 @@ const (
 	Failover FailMode = iota
 	// Failfast 模式表示在遇到失败时立刻返回错误
 	Failfast
-	// Failtry 模式表示在失败时对同一个候选者重新尝试
+	// Failtry 模式表示在失败时对同一个候选者重新尝试3次
 	Failtry
 )
 

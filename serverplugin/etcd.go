@@ -1,3 +1,6 @@
+//go:build etcd
+// +build etcd
+
 package serverplugin
 
 import (
