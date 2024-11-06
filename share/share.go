@@ -21,3 +21,8 @@ var (
 		protocol.MsgPack:       &codec.MsgpackCodec{},
 	}
 )
+
+// 对外暴露的注册方法
+func RegisterCodec(t protocol.SerializeType, c codec.Codec) {
+	Codecs[t] = c
+}
