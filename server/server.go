@@ -192,7 +192,15 @@ func (s *Server) serveConn(conn net.Conn) {
 		if err := recover(); err != nil {
 			const size = 64 << 10
 			buf := make([]byte, size)
-			buf = buf[:runtime.Stack(buf, false)]
+
+			ss := runtime.Stack(buf, false)
+
+			if ss > size {
+				ss = size
+			}
+
+			buf = buf[:ss]
+
 			log.Errorf("serving %s panic error: %s, stack:\n %s", conn.RemoteAddr(), err, buf)
 		}
 
