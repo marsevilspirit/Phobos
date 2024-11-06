@@ -103,7 +103,8 @@ func TestMessage_EncodeDecode(t *testing.T) {
 	req.SetSeq(114514)
 
 	m := make(map[string]string)
-	m["__METHOD"] = "Mrpc.Test"
+	req.ServicePath = "Mrpc"
+	req.ServiceMethod = "Test"
 	m["__ID"] = "41235123613476347134623"
 	req.Metadata = m
 
@@ -138,7 +139,7 @@ func TestMessage_EncodeDecode(t *testing.T) {
 		t.Errorf("expect Seq 114514, got %d", res.Seq())
 	}
 
-	if res.Metadata["__METHOD"] != "Mrpc.Test" || res.Metadata["__ID"] != "41235123613476347134623" {
+	if res.ServicePath != "Mrpc" || req.ServiceMethod != "Test" || res.Metadata["__ID"] != "41235123613476347134623" {
 		t.Errorf("got wrong metadata: %v", res.Metadata)
 	}
 
