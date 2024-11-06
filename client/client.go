@@ -17,6 +17,13 @@ import (
 	"github.com/marsevilspirit/m_RPC/util"
 )
 
+// ServiceError is the error interface for service error
+type ServiceError string
+
+func (e ServiceError) Error() string {
+	return string(e)
+}
+
 var DefaultOption = Option{
 	Retries:        3,
 	RPCPath:        share.DefaultRPCPath,
@@ -291,24 +298,24 @@ func (client *Client) receive() {
 		case call == nil:
 
 		case res.MessageStatusType() == protocol.Error:
-			call.Error = errors.New(res.Metadata[protocol.ServiceError])
+			call.Error = ServiceError(res.Metadata[protocol.ServiceError])
 			call.done()
 		default:
 			data := res.Payload
 			if res.CompressType() == protocol.Gzip {
 				data, err = util.Unzip(data)
 				if err != nil {
-					call.Error = errors.New("unzip payload: " + err.Error())
+					call.Error = ServiceError("unzip payload: " + err.Error())
 				}
 			}
 
 			codec := share.Codecs[res.SerializeType()]
 			if codec == nil {
-				call.Error = ErrUnspportedCodec
+				call.Error = ServiceError(ErrUnspportedCodec.Error())
 			} else {
 				err = codec.Decode(data, call.Reply)
 				if err != nil {
-					call.Error = err
+					call.Error = ServiceError("decode payload: " + err.Error())
 				}
 			}
 
