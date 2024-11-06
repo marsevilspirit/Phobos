@@ -10,6 +10,7 @@ require (
 	github.com/rpcxio/rpcx-etcd v0.4.2
 	github.com/stretchr/testify v1.9.0
 	github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
+	github.com/valyala/fastrand v0.0.0-20170531153657-19dd0f0bf014
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	google.golang.org/protobuf v1.35.1
 )

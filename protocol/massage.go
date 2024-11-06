@@ -351,14 +351,14 @@ func (m *Message) Decode(r io.Reader) error {
 	}
 
 	// 读取data长度
-	lenData := poolUint32Data.Get().([]byte)
-	_, err = io.ReadFull(r, lenData)
+	lenData := poolUint32Data.Get().(*[]byte)
+	_, err = io.ReadFull(r, *lenData)
 	if err != nil {
 		poolUint32Data.Put(lenData)
 		return err
 	}
 
-	l := binary.BigEndian.Uint32(lenData)
+	l := binary.BigEndian.Uint32(*lenData)
 	poolUint32Data.Put(lenData)
 	data := make([]byte, int(l))
 	_, err = io.ReadFull(r, data)
@@ -398,6 +398,7 @@ func (m *Message) Decode(r io.Reader) error {
 
 	// 读取payload
 	l = binary.BigEndian.Uint32(data[n : n+4])
+	_ = l
 	n += 4
 	m.Payload = data[n:]
 
