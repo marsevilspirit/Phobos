@@ -29,6 +29,11 @@ func NewEtcdDiscovery(basePath string, etcdAddr []string) ServiceDiscovery {
 		panic(err)
 	}
 
+	return NewEtcdDiscoveryStore(basePath, kv)
+}
+
+func NewEtcdDiscoveryStore(basePath string, kv store.Store) ServiceDiscovery {
+
 	// mrpc_example/HelloWorld
 	d := &EtcdDiscovery{basePath: basePath, kv: kv}
 	go d.watch()
