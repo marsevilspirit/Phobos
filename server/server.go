@@ -53,6 +53,8 @@ type Server struct {
 	inShutdown int32
 	onShutdown []func()
 
+	TLSConfig *tls.Config
+
 	Options map[string]interface{}
 
 	Plugins PluginContainer
@@ -88,7 +90,7 @@ func (s *Server) getDone() <-chan struct{} {
 func (s *Server) Serve(network, address string) (err error) {
 	var ln net.Listener
 
-	ln, err = makeListener(network, address)
+	ln, err = s.makeListener(network, address)
 	if err != nil {
 		return err
 	}
@@ -237,6 +239,13 @@ func (s *Server) serveConn(conn net.Conn) {
 		}
 
 		go func() {
+			if req.IsHeartbeat() {
+				req.SetMessageType(protocol.Response)
+				data := req.Encode()
+				conn.Write(data)
+				return
+			}
+
 			res, err := s.handleRequest(ctx, req)
 			if err != nil {
 				log.Errorf("mrpc: failed to handle request: %v", err)

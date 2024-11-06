@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"net"
 
 	reuseport "github.com/kavu/go_reuseport"
@@ -12,7 +13,7 @@ func validIP4(address string) bool {
 	return ip != nil && ip.To4() != nil
 }
 
-func makeListener(network, address string) (ln net.Listener, err error) {
+func (s *Server) makeListener(network, address string) (ln net.Listener, err error) {
 	switch network {
 	case "reuseport":
 		if validIP4(address) {
@@ -23,8 +24,17 @@ func makeListener(network, address string) (ln net.Listener, err error) {
 
 		ln, err = reuseport.NewReusablePortListener(network, address)
 
-	default:
-		ln, err = net.Listen(network, address)
+	default: // tcp, http
+		if s.TLSConfig != nil {
+			ln, err = net.Listen(network, address)
+			if err != nil {
+				return nil, err
+			}
+
+			ln = tls.NewListener(ln, s.TLSConfig)
+		} else {
+			ln, err = net.Listen(network, address)
+		}
 	}
 
 	return ln, err

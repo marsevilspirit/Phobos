@@ -83,7 +83,7 @@ type Client struct {
 
 	Conn net.Conn
 	r    *bufio.Reader
-	w    *bufio.Writer
+	// w    *bufio.Writer
 
 	mu       sync.Mutex
 	seq      uint64
@@ -108,6 +108,10 @@ type Option struct {
 
 	SerializeType protocol.SerializeType
 	CompressType  protocol.CompressType
+
+	Heartbeat bool
+
+	HeartbeatInterval time.Duration
 }
 
 var _ io.Closer = (*Client)(nil)
@@ -222,38 +226,40 @@ func (client *Client) send(ctx context.Context, call *Call) {
 	req := protocol.NewMessage()
 	req.SetMessageType(protocol.Request)
 	req.SetSeq(seq)
-	req.SetSerializeType(client.option.SerializeType)
-	if call.Metadata != nil {
-		req.Metadata = call.Metadata
-	}
-	req.ServicePath = call.ServicePath
-	req.ServiceMethod = call.ServiceMethod
 
-	data, err := codec.Encode(call.Args)
-	if err != nil {
-		log.Error("encode failed: ", err)
-		call.Error = err
-		call.done()
-		return
-	}
+	if call.ServicePath == "" && call.ServiceMethod == "" {
+		req.SetHeartbeat(true)
+	} else {
+		req.SetSerializeType(client.option.SerializeType)
+		if call.Metadata != nil {
+			req.Metadata = call.Metadata
+		}
 
-	if len(data) > 1024 && client.option.CompressType == protocol.Gzip {
-		data, err = util.Zip(data)
+		req.ServicePath = call.ServicePath
+		req.ServiceMethod = call.ServiceMethod
+
+		data, err := codec.Encode(call.Args)
 		if err != nil {
 			call.Error = err
 			call.done()
 			return
 		}
 
-		req.SetCompressType(client.option.CompressType)
+		if len(data) > 1024 && client.option.CompressType == protocol.Gzip {
+			data, err = util.Zip(data)
+			if err != nil {
+				call.Error = err
+				call.done()
+				return
+			}
+
+			req.SetCompressType(client.option.CompressType)
+		}
+
+		req.Payload = data
 	}
 
-	req.Payload = data
-
-	_, err = req.WriteTo(client.w)
-	if err == nil {
-		err = client.w.Flush()
-	}
+	_, err := req.WriteTo(client.Conn)
 	if err != nil {
 		client.mu.Lock()
 		call = client.pending[seq]
@@ -302,20 +308,22 @@ func (client *Client) receive() {
 			call.done()
 		default:
 			data := res.Payload
-			if res.CompressType() == protocol.Gzip {
-				data, err = util.Unzip(data)
-				if err != nil {
-					call.Error = ServiceError("unzip payload: " + err.Error())
+			if len(data) > 0 {
+				if res.CompressType() == protocol.Gzip {
+					data, err = util.Unzip(data)
+					if err != nil {
+						call.Error = ServiceError("unzip payload: " + err.Error())
+					}
 				}
-			}
 
-			codec := share.Codecs[res.SerializeType()]
-			if codec == nil {
-				call.Error = ServiceError(ErrUnspportedCodec.Error())
-			} else {
-				err = codec.Decode(data, call.Reply)
-				if err != nil {
-					call.Error = ServiceError("decode payload: " + err.Error())
+				codec := share.Codecs[res.SerializeType()]
+				if codec == nil {
+					call.Error = ServiceError(ErrUnspportedCodec.Error())
+				} else {
+					err = codec.Decode(data, call.Reply)
+					if err != nil {
+						call.Error = ServiceError("decode payload: " + err.Error())
+					}
 				}
 			}
 
@@ -342,5 +350,21 @@ func (client *Client) receive() {
 	client.mu.Unlock()
 	if err != io.EOF && !closing {
 		log.Error("mrpc: client protocol error:", err)
+	}
+}
+
+func (client *Client) heartbeat() {
+	ticker := time.NewTicker(client.option.HeartbeatInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if client.shutdown || client.closing {
+			break
+		}
+
+		err := client.Call(context.Background(), "", "", nil, nil, nil)
+		if err != nil {
+			log.Warnf("mrpc: client heartbeat error: %v to %s", err, client.Conn.RemoteAddr().String())
+		}
 	}
 }
