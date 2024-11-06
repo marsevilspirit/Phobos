@@ -32,5 +32,4 @@ func main() {
 	}
 
 	log.Print("reply: ", reply.Second)
-
 }

@@ -37,6 +37,8 @@ func (t *HelloWorld) Greet(ctx context.Context, args *Args, reply *Reply) error 
 server:
 ```go
 func main() {
+	flag.Parse()
+
 	s := server.NewServer(nil)
 	s.RegisterWithName("HelloWorld", new(example.HelloWorld), "")
 	s.Serve("tcp", *addr)
@@ -46,6 +48,8 @@ func main() {
 client:
 ```go
 func main() {
+	flag.Parse()
+
 	d := client.NewP2PDiscovery("tcp@"+*addr, "")
 	xclient := client.NewXClient("HelloWorld", "Greet", client.Failtry, client.RandomSelect, d, client.DefaultOption)
 	defer xclient.Close()
