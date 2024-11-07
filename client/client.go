@@ -78,6 +78,15 @@ func (call *Call) done() {
 // for context key
 type seqKey struct{}
 
+type RPCClient interface {
+	Connect(network, address string) error
+	Go(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, metadata map[string]string, done chan *Call) *Call
+	Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, metadata map[string]string) error
+	Close() error
+	IsClosing() bool
+	IsShutdown() bool
+}
+
 type Client struct {
 	option Option
 
@@ -170,6 +179,16 @@ func (client *Client) call(ctx context.Context, servicePath, serviceMethod strin
 	}
 
 	return err
+}
+
+// IsClosing client is closing or not.
+func (client *Client) IsClosing() bool {
+	return client.closing
+}
+
+// IsShutdown client is shutdown or not.
+func (client *Client) IsShutdown() bool {
+	return client.shutdown
 }
 
 func (client *Client) Go(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}, metadata map[string]string, done chan *Call) *Call {

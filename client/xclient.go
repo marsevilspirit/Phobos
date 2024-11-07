@@ -44,9 +44,9 @@ type ServiceDiscovery interface {
 
 // xClient 结构体实现 XClient 接口
 type xClient struct {
-	failMode     FailMode           // 失败处理模式
-	selectMode   SelectMode         // 选择处理模式
-	cachedClient map[string]*Client // 缓存的客户端连接
+	failMode     FailMode             // 失败处理模式
+	selectMode   SelectMode           // 选择处理模式
+	cachedClient map[string]RPCClient // 缓存的客户端连接
 
 	mu        sync.RWMutex      // 读写锁，用于保护共享资源的并发访问
 	servers   map[string]string // 当前已知的服务器地址
@@ -76,7 +76,7 @@ func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode
 		discovery:     discovery,
 		servicePath:   servicePath,
 		serviceMethod: serviceMethod,
-		cachedClient:  make(map[string]*Client),
+		cachedClient:  make(map[string]RPCClient),
 		option:        option,
 	}
 
@@ -127,7 +127,7 @@ func (c *xClient) watch(ch chan []*KVPair) {
 }
 
 // selectClient 方法，用于根据选择模式选择客户端
-func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod string, args interface{}) (string, *Client, error) {
+func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod string, args interface{}) (string, RPCClient, error) {
 	k := c.selector.Select(ctx, servicePath, serviceMethod, args)
 	if k == "" {
 		return "", nil, ErrXClientNoServer
@@ -139,11 +139,11 @@ func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod s
 }
 
 // getCachedClient 方法，根据服务器键获取缓存的客户端连接
-func (c *xClient) getCachedClient(k string) (*Client, error) {
+func (c *xClient) getCachedClient(k string) (RPCClient, error) {
 	c.mu.RLock()
 	client := c.cachedClient[k]
 	if client != nil {
-		if !client.closing && !client.shutdown {
+		if !client.IsClosing() && !client.IsShutdown() {
 			c.mu.RUnlock()
 			return client, nil
 		}
@@ -171,7 +171,7 @@ func (c *xClient) getCachedClient(k string) (*Client, error) {
 	return client, nil
 }
 
-func (c *xClient) removeClient(k string, client *Client) {
+func (c *xClient) removeClient(k string, client RPCClient) {
 	c.mu.Lock()
 	if c.cachedClient[k] == client {
 		delete(c.cachedClient, k)
@@ -193,13 +193,13 @@ func splitNetworkAndAddress(server string) (string, string) {
 	return ss[0], ss[1]
 }
 
-func (c *xClient) wrapCall(ctx context.Context, client *Client, args interface{}, reply interface{}, metadata map[string]string) error {
+func (c *xClient) wrapCall(ctx context.Context, client RPCClient, args interface{}, reply interface{}, metadata map[string]string) error {
 	if client == nil {
 		return ErrServerUnavailable
 	}
 
 	c.Plugins.DoPreCall(ctx, c.servicePath, c.serviceMethod, args, metadata)
-	err := client.call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
+	err := client.Call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
 	c.Plugins.DoPostCall(ctx, c.servicePath, c.serviceMethod, args, reply, metadata, err)
 	return err
 }
@@ -300,7 +300,7 @@ func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}, metada
 		metadata[share.AuthKey] = c.auth
 	}
 
-	var clients []*Client
+	var clients []RPCClient
 
 	c.mu.RLock()
 	for k := range c.servers {
@@ -358,7 +358,7 @@ func (c *xClient) Fork(ctx context.Context, args, reply interface{}, metadata ma
 		metadata[share.AuthKey] = c.auth
 	}
 
-	var clients []*Client
+	var clients []RPCClient
 
 	c.mu.RLock()
 	for k := range c.servers {

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"reflect"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -69,6 +70,9 @@ func NewServer(options map[string]interface{}) *Server {
 }
 
 func (s *Server) Address() net.Addr {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.ln == nil {
 		return nil
 	}
@@ -236,8 +240,10 @@ func (s *Server) serveConn(conn net.Conn) {
 		if err != nil {
 			if err == io.EOF {
 				log.Infof("client disconnected: %s", conn.RemoteAddr().String())
+			} else if strings.Contains(err.Error(), "use of closed network connection") {
+				log.Infof("rpcx: connection %s is closed", conn.RemoteAddr().String())
 			} else {
-				log.Errorf("mrpc: failed to read request: %v", err)
+				log.Warnf("mrpc: failed to read request: %v", err)
 			}
 			return
 		}
@@ -256,7 +262,7 @@ func (s *Server) serveConn(conn net.Conn) {
 
 			res, err := s.handleRequest(ctx, req)
 			if err != nil {
-				log.Errorf("mrpc: failed to handle request: %v", err)
+				log.Warnf("mrpc: failed to handle request: %v", err)
 			}
 
 			s.Plugins.DoPreWriteResponse(ctx, req)
