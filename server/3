@@ -32,7 +32,7 @@ type (
 	}
 
 	PostConnAcceptPlugin interface {
-		HandleConnAccept(net.Conn) (net.Conn, bool)
+		HandleConAccept(net.Conn) (net.Conn, bool)
 	}
 
 	PreReadRequestPlugin interface {
@@ -101,7 +101,7 @@ func (p *pluginContainer) DoPostConnAccept(conn net.Conn) (net.Conn, bool) {
 	var flag bool
 	for i := range p.plugins {
 		if plugin, ok := p.plugins[i].(PostConnAcceptPlugin); ok {
-			conn, flag = plugin.HandleConnAccept(conn)
+			conn, flag = plugin.HandleConAccept(conn)
 			if !flag {
 				conn.Close()
 				return conn, false
@@ -127,6 +127,7 @@ func (p *pluginContainer) DoPreReadRequest(ctx context.Context) error {
 
 func (p *pluginContainer) DoPostReadRequest(ctx context.Context, r *protocol.Message, e error) error {
 	for i := range p.plugins {
+		fmt.Printf("DoPostReadRequest: %v\n", p.plugins[i])
 		if plugin, ok := p.plugins[i].(PostReadRequestPlugin); ok {
 			err := plugin.PostReadRequest(ctx, r, e)
 			if err != nil {
