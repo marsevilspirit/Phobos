@@ -10,9 +10,9 @@ import (
 type State int
 
 const (
-	StateClosed State = iota
-	StateHalfOpen
-	StateOpen
+	Closed State = iota
+	HalfOpen
+	Open
 )
 
 const defaultInterval = time.Duration(0) * time.Second
@@ -26,11 +26,11 @@ var (
 // String 返回状态的字符串表示
 func (s State) String() string {
 	switch s {
-	case StateClosed:
+	case Closed:
 		return "closed"
-	case StateHalfOpen:
+	case HalfOpen:
 		return "half-open"
-	case StateOpen:
+	case Open:
 		return "open"
 	default:
 		return "unknown state"
@@ -153,13 +153,13 @@ func (b *Breaker) toNewGeneration(now time.Time) {
 	var zero time.Time
 
 	switch b.state {
-	case StateClosed:
+	case Closed:
 		if b.interval == 0 {
 			b.expiry = zero
 		} else {
 			b.expiry = now.Add(b.interval)
 		}
-	case StateOpen:
+	case Open:
 		b.expiry = now.Add(b.timeout)
 	default:
 		b.expiry = zero
@@ -181,13 +181,13 @@ func (b *Breaker) State() State {
 
 func (b *Breaker) currentState(now time.Time) (State, uint64) {
 	switch b.state {
-	case StateClosed:
+	case Closed:
 		if !b.expiry.IsZero() && b.expiry.Before(now) {
 			b.toNewGeneration(now)
 		}
-	case StateOpen:
+	case Open:
 		if b.expiry.Before(now) {
-			b.setState(StateHalfOpen, now)
+			b.setState(HalfOpen, now)
 		}
 	}
 
@@ -241,9 +241,9 @@ func (b *Breaker) beforeRequest() (uint64, error) {
 	now := time.Now()
 	state, generation := b.currentState(now)
 
-	if state == StateOpen {
+	if state == Open {
 		return generation, ErrOpenState
-	} else if state == StateHalfOpen && b.counts.Requests >= b.maxRequests {
+	} else if state == HalfOpen && b.counts.Requests >= b.maxRequests {
 		return generation, ErrTooManyRequests
 	}
 
@@ -270,25 +270,25 @@ func (b *Breaker) afterRequest(before uint64, success bool) {
 
 func (b *Breaker) onSuccess(state State, now time.Time) {
 	switch state {
-	case StateClosed:
+	case Closed:
 		b.counts.onSuccess()
-	case StateHalfOpen:
+	case HalfOpen:
 		b.counts.onSuccess()
 		if b.counts.ConsecutiveSuccesses >= b.maxRequests {
-			b.setState(StateClosed, now)
+			b.setState(Closed, now)
 		}
 	}
 }
 
 func (b *Breaker) onFailure(state State, now time.Time) {
 	switch state {
-	case StateClosed:
+	case Closed:
 		b.counts.onFailure()
 		if b.readyToTrip(b.counts) {
-			b.setState(StateOpen, now)
+			b.setState(Open, now)
 		}
-	case StateHalfOpen:
-		b.setState(StateOpen, now)
+	case HalfOpen:
+		b.setState(Open, now)
 	}
 }
 
@@ -326,4 +326,3 @@ func (tb *TwoStepBreaker) Allow() (done func(success bool), err error) {
 		tb.b.afterRequest(generation, success)
 	}, nil
 }
-

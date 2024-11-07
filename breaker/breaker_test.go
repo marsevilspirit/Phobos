@@ -9,13 +9,13 @@ import (
 )
 
 func TestStateConstants(t *testing.T) {
-	assert.Equal(t, State(0), StateClosed)
-	assert.Equal(t, State(1), StateHalfOpen)
-	assert.Equal(t, State(2), StateOpen)
+	assert.Equal(t, State(0), Closed)
+	assert.Equal(t, State(1), HalfOpen)
+	assert.Equal(t, State(2), Open)
 
-	assert.Equal(t, StateClosed.String(), "closed")
-	assert.Equal(t, StateHalfOpen.String(), "half-open")
-	assert.Equal(t, StateOpen.String(), "open")
+	assert.Equal(t, Closed.String(), "closed")
+	assert.Equal(t, HalfOpen.String(), "half-open")
+	assert.Equal(t, Open.String(), "open")
 	assert.Equal(t, State(100).String(), "unknown state")
 }
 
@@ -49,7 +49,7 @@ func TestBreaker(t *testing.T) {
 	})
 
 	assert.Equal(t, cb.Name(), "test-breaker")
-	assert.Equal(t, cb.State(), StateClosed)
+	assert.Equal(t, cb.State(), Closed)
 
 	// 测试请求和响应处理
 	result, err := cb.Execute(func() (interface{}, error) {
@@ -73,7 +73,7 @@ func TestTwoStepBreaker(t *testing.T) {
 	})
 
 	assert.Equal(t, tb.Name(), "test-two-step-breaker")
-	assert.Equal(t, tb.State(), StateClosed)
+	assert.Equal(t, tb.State(), Closed)
 
 	done, err := tb.Allow()
 	assert.Nil(t, err)
@@ -97,7 +97,7 @@ func TestCircuitBreakerTripAndReset(t *testing.T) {
 		Timeout: 1 * time.Second,
 	})
 
-	assert.Equal(t, b.State(), StateClosed)
+	assert.Equal(t, b.State(), Closed)
 
 	// 模拟3次失败的请求，检测熔断状态
 	for i := 0; i < 3; i++ {
@@ -109,7 +109,7 @@ func TestCircuitBreakerTripAndReset(t *testing.T) {
 	}
 
 	// 检查Breaker是否进入Open状态
-	assert.Equal(t, b.State(), StateOpen)
+	assert.Equal(t, b.State(), Open)
 
 	// 尝试另一个请求，应立即被拒绝
 	result, err := b.Execute(func() (interface{}, error) {
@@ -122,7 +122,7 @@ func TestCircuitBreakerTripAndReset(t *testing.T) {
 	time.Sleep(b.timeout) // 等待超时结束
 
 	// 检查Breaker是否进入Half-Open状态
-	assert.Equal(t, b.State(), StateHalfOpen)
+	assert.Equal(t, b.State(), HalfOpen)
 
 	// 模拟成功的请求，应该重新进入Closed状态
 	result, err = b.Execute(func() (interface{}, error) {
@@ -132,7 +132,7 @@ func TestCircuitBreakerTripAndReset(t *testing.T) {
 	assert.Equal(t, 1, result)
 
 	// 检查Breaker是否返回Closed状态
-	assert.Equal(t, b.State(), StateClosed)
+	assert.Equal(t, b.State(), Closed)
 }
 
 func TestTwoStepCircuitBreakerTripAndReset(t *testing.T) {
@@ -145,7 +145,7 @@ func TestTwoStepCircuitBreakerTripAndReset(t *testing.T) {
 		Timeout: 1 * time.Second,
 	})
 
-	assert.Equal(t, tb.State(), StateClosed)
+	assert.Equal(t, tb.State(), Closed)
 
 	// 模拟3次失败的请求，检测熔断状态
 	for i := 0; i < 3; i++ {
@@ -155,7 +155,7 @@ func TestTwoStepCircuitBreakerTripAndReset(t *testing.T) {
 	}
 
 	// 检查TwoStepBreaker是否进入Open状态
-	assert.Equal(t, tb.State(), StateOpen)
+	assert.Equal(t, tb.State(), Open)
 
 	// 尝试另一个请求，应立即被拒绝
 	done, err := tb.Allow()
@@ -166,7 +166,7 @@ func TestTwoStepCircuitBreakerTripAndReset(t *testing.T) {
 	time.Sleep(tb.b.timeout) // 等待超时结束
 
 	// 检查TwoStepBreaker是否进入Half-Open状态
-	assert.Equal(t, tb.State(), StateHalfOpen)
+	assert.Equal(t, tb.State(), HalfOpen)
 
 	// 模拟成功的请求，应该重新进入Closed状态
 	done, err = tb.Allow()
@@ -174,5 +174,5 @@ func TestTwoStepCircuitBreakerTripAndReset(t *testing.T) {
 	done(true) // 模拟成功
 
 	// 检查TwoStepBreaker是否返回Closed状态
-	assert.Equal(t, tb.State(), StateClosed)
+	assert.Equal(t, tb.State(), Closed)
 }
