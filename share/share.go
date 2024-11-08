@@ -26,3 +26,10 @@ var (
 func RegisterCodec(t protocol.SerializeType, c codec.Codec) {
 	Codecs[t] = c
 }
+
+// ContextKey is a type for context keys
+type ContextKey string
+
+var ReqMetaDataKey = ContextKey("reqMetaData")
+
+var ResMetaDataKey = ContextKey("resMetaData")

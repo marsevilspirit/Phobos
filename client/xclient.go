@@ -22,10 +22,10 @@ type XClient interface {
 	SetPlugins(plugins PluginContainer)
 	SetGeoSelector(latitude, longitude float64)
 	Auth(auth string)
-	Go(ctx context.Context, args, reply interface{}, metadata map[string]string, done chan *Call) (*Call, error)
-	Call(ctx context.Context, args, reply interface{}, metadata map[string]string) error
-	Broadcast(ctx context.Context, args, reply interface{}, metadata map[string]string) error
-	Fork(ctx context.Context, args, reply interface{}, metadata map[string]string) error
+	Go(ctx context.Context, args, reply interface{}, done chan *Call) (*Call, error)
+	Call(ctx context.Context, args, reply interface{}) error
+	Broadcast(ctx context.Context, args, reply interface{}) error
+	Fork(ctx context.Context, args, reply interface{}) error
 	Close() error
 }
 
@@ -193,28 +193,30 @@ func splitNetworkAndAddress(server string) (string, string) {
 	return ss[0], ss[1]
 }
 
-func (c *xClient) wrapCall(ctx context.Context, client RPCClient, args interface{}, reply interface{}, metadata map[string]string) error {
+func (c *xClient) wrapCall(ctx context.Context, client RPCClient, args interface{}, reply interface{}) error {
 	if client == nil {
 		return ErrServerUnavailable
 	}
 
-	c.Plugins.DoPreCall(ctx, c.servicePath, c.serviceMethod, args, metadata)
-	err := client.Call(ctx, c.servicePath, c.serviceMethod, args, reply, metadata)
-	c.Plugins.DoPostCall(ctx, c.servicePath, c.serviceMethod, args, reply, metadata, err)
+	c.Plugins.DoPreCall(ctx, c.servicePath, c.serviceMethod, args)
+	err := client.Call(ctx, c.servicePath, c.serviceMethod, args, reply)
+	c.Plugins.DoPostCall(ctx, c.servicePath, c.serviceMethod, args, reply, err)
 	return err
 }
 
 // Go 方法实现异步调用 RPC
-func (c *xClient) Go(ctx context.Context, args, reply interface{}, metadata map[string]string, done chan *Call) (*Call, error) {
+func (c *xClient) Go(ctx context.Context, args, reply interface{}, done chan *Call) (*Call, error) {
 	if c.isShutdown {
 		return nil, ErrXClientShutdown
 	}
 
 	if c.auth != "" {
+		metadata := ctx.Value(share.ReqMetaDataKey)
 		if metadata == nil {
-			metadata = make(map[string]string)
+			return nil, errors.New("must set ReqMetaDataKey in context")
 		}
-		metadata[share.AuthKey] = c.auth
+		m := metadata.(map[string]string)
+		m[share.AuthKey] = c.auth
 	}
 
 	_, client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
@@ -222,20 +224,22 @@ func (c *xClient) Go(ctx context.Context, args, reply interface{}, metadata map[
 		return nil, err
 	}
 
-	return client.Go(ctx, c.servicePath, c.serviceMethod, args, reply, metadata, done), nil
+	return client.Go(ctx, c.servicePath, c.serviceMethod, args, reply, done), nil
 }
 
 // Call 方法实现同步调用 RPC，通过调用 Go 方法并等待结果
-func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata map[string]string) error {
+func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
 	}
 
 	if c.auth != "" {
+		metadata := ctx.Value(share.ReqMetaDataKey)
 		if metadata == nil {
-			metadata = make(map[string]string)
+			return errors.New("must set metadata in context")
 		}
-		metadata[share.AuthKey] = c.auth
+		m := metadata.(map[string]string)
+		m[share.AuthKey] = c.auth
 	}
 
 	var err error
@@ -250,7 +254,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata ma
 		retries := c.option.Retries
 		for retries > 0 {
 			retries--
-			err = c.wrapCall(ctx, client, args, reply, metadata)
+			err = c.wrapCall(ctx, client, args, reply)
 			if err == nil {
 				return nil
 			}
@@ -264,7 +268,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata ma
 		retries := c.option.Retries
 		for retries > 0 {
 			retries--
-			err = c.wrapCall(ctx, client, args, reply, metadata)
+			err = c.wrapCall(ctx, client, args, reply)
 			if err == nil {
 				return nil
 			}
@@ -277,7 +281,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata ma
 
 		return err
 	default: // Failfast
-		err = c.wrapCall(ctx, client, args, reply, metadata)
+		err = c.wrapCall(ctx, client, args, reply)
 		if err != nil {
 			if _, ok := err.(ServiceError); !ok {
 				c.removeClient(k, client)
@@ -288,16 +292,18 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}, metadata ma
 	}
 }
 
-func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}, metadata map[string]string) error {
+func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
 	}
 
 	if c.auth != "" {
+		metadata := ctx.Value(share.ReqMetaDataKey)
 		if metadata == nil {
-			metadata = make(map[string]string)
+			return errors.New("must set ReqMetaDataKey in context")
 		}
-		metadata[share.AuthKey] = c.auth
+		m := metadata.(map[string]string)
+		m[share.AuthKey] = c.auth
 	}
 
 	var clients []RPCClient
@@ -323,7 +329,7 @@ func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}, metada
 	for _, client := range clients {
 		client := client
 		go func() {
-			err = c.wrapCall(ctx, client, args, reply, metadata)
+			err = c.wrapCall(ctx, client, args, reply)
 			done <- (err == nil)
 		}()
 	}
@@ -346,16 +352,18 @@ check:
 	return err
 }
 
-func (c *xClient) Fork(ctx context.Context, args, reply interface{}, metadata map[string]string) error {
+func (c *xClient) Fork(ctx context.Context, args, reply interface{}) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
 	}
 
 	if c.auth != "" {
+		metadata := ctx.Value(share.ReqMetaDataKey)
 		if metadata == nil {
-			metadata = make(map[string]string)
+			return errors.New("must set ReqMetaDataKey in context")
 		}
-		metadata[share.AuthKey] = c.auth
+		m := metadata.(map[string]string)
+		m[share.AuthKey] = c.auth
 	}
 
 	var clients []RPCClient
@@ -384,7 +392,7 @@ func (c *xClient) Fork(ctx context.Context, args, reply interface{}, metadata ma
 		go func() {
 			// 代码中只有在调用成功（err == nil）时才会更新原始的 reply 这样可以确保只有成功的调用结果才会被保存
 			clonedReply := reflect.New(reflect.ValueOf(reply).Elem().Type()).Interface()
-			err = c.wrapCall(ctx, client, args, clonedReply, metadata)
+			err = c.wrapCall(ctx, client, args, clonedReply)
 			done <- (err == nil)
 			if err == nil {
 				reflect.ValueOf(reply).Set(reflect.ValueOf(clonedReply))

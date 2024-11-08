@@ -260,19 +260,33 @@ func (s *Server) serveConn(conn net.Conn) {
 				return
 			}
 
-			res, err := s.handleRequest(ctx, req)
+			resMetadata := make(map[string]string)
+			newCtx := context.WithValue(context.WithValue(ctx, share.ReqMetaDataKey, req.Metadata), share.ResMetaDataKey, resMetadata)
+
+			res, err := s.handleRequest(newCtx, req)
 			if err != nil {
 				log.Warnf("mrpc: failed to handle request: %v", err)
 			}
 
-			s.Plugins.DoPreWriteResponse(ctx, req)
+			s.Plugins.DoPreWriteResponse(newCtx, req)
 
 			if !req.IsOneway() {
+				if len(resMetadata) > 0 {
+					meta := res.Metadata
+					if meta == nil {
+						res.Metadata = resMetadata
+					} else {
+						for k, v := range resMetadata {
+							meta[k] = v
+						}
+					}
+				}
+
 				data := res.Encode()
 				conn.Write(data)
 			}
 
-			s.Plugins.DoPostWriteResponse(ctx, req, res, err)
+			s.Plugins.DoPostWriteResponse(newCtx, req, res, err)
 
 		}()
 	}

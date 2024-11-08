@@ -59,11 +59,14 @@ const (
 type Call struct {
 	ServicePath   string
 	ServiceMethod string
-	Metadata      map[string]string
-	Args          interface{}
-	Reply         interface{}
-	Error         error
-	Done          chan *Call
+
+	Metadata    map[string]string
+	ResMetadata map[string]string
+
+	Args  interface{}
+	Reply interface{}
+	Error error
+	Done  chan *Call
 }
 
 func (call *Call) done() {
@@ -80,8 +83,8 @@ type seqKey struct{}
 
 type RPCClient interface {
 	Connect(network, address string) error
-	Go(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, metadata map[string]string, done chan *Call) *Call
-	Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, metadata map[string]string) error
+	Go(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, done chan *Call) *Call
+	Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error
 	Close() error
 	IsClosing() bool
 	IsShutdown() bool
@@ -146,20 +149,20 @@ func (client *Client) Close() error {
 	return client.Conn.Close()
 }
 
-func (client *Client) Call(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}, metadata map[string]string) error {
+func (client *Client) Call(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}) error {
 	if client.option.Breaker != nil {
 		_, err := client.option.Breaker.Execute(func() (interface{}, error) {
-			return nil, client.call(ctx, servicePath, serviceMethod, args, reply, metadata)
+			return nil, client.call(ctx, servicePath, serviceMethod, args, reply)
 		})
 		return err
 	} else {
-		return client.call(ctx, servicePath, serviceMethod, args, reply, metadata)
+		return client.call(ctx, servicePath, serviceMethod, args, reply)
 	}
 }
-func (client *Client) call(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}, metadata map[string]string) error {
+func (client *Client) call(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}) error {
 	seq := new(uint64)
 	ctx = context.WithValue(ctx, seqKey{}, seq)
-	Done := client.Go(ctx, servicePath, serviceMethod, args, reply, metadata, make(chan *Call, 1)).Done
+	Done := client.Go(ctx, servicePath, serviceMethod, args, reply, make(chan *Call, 1)).Done
 
 	var err error
 	select {
@@ -176,6 +179,13 @@ func (client *Client) call(ctx context.Context, servicePath, serviceMethod strin
 		return ctx.Err()
 	case call := <-Done:
 		err = call.Error
+		meta := ctx.Value(share.ResMetaDataKey)
+		if meta != nil && len(call.ResMetadata) > 0 {
+			resMeta := meta.(map[string]string)
+			for k, v := range call.ResMetadata {
+				resMeta[k] = v
+			}
+		}
 	}
 
 	return err
@@ -191,14 +201,18 @@ func (client *Client) IsShutdown() bool {
 	return client.shutdown
 }
 
-func (client *Client) Go(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}, metadata map[string]string, done chan *Call) *Call {
+func (client *Client) Go(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}, done chan *Call) *Call {
 	call := &Call{
 		ServicePath:   servicePath,
 		ServiceMethod: serviceMethod,
 		Args:          args,
 		Reply:         reply,
-		Metadata:      metadata,
 		Done:          done,
+	}
+
+	meta := ctx.Value(share.ReqMetaDataKey)
+	if meta != nil {
+		call.Metadata = meta.(map[string]string)
 	}
 
 	if call.Done == nil {
@@ -325,6 +339,7 @@ func (client *Client) receive() {
 
 		case res.MessageStatusType() == protocol.Error:
 			call.Error = ServiceError(res.Metadata[protocol.ServiceError])
+			call.ResMetadata = res.Metadata
 			call.done()
 		default:
 			data := res.Payload
@@ -346,7 +361,7 @@ func (client *Client) receive() {
 					}
 				}
 			}
-
+			call.ResMetadata = res.Metadata
 			call.done()
 		}
 	}
@@ -382,7 +397,7 @@ func (client *Client) heartbeat() {
 			break
 		}
 
-		err := client.Call(context.Background(), "", "", nil, nil, nil)
+		err := client.Call(context.Background(), "", "", nil, nil)
 		if err != nil {
 			log.Warnf("mrpc: client heartbeat error: %v to %s", err, client.Conn.RemoteAddr().String())
 		}

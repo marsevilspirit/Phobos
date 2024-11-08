@@ -33,19 +33,19 @@ func main() {
 
 	for i := 0; i < 10; i++ {
 
-		err := xclient1.Call(context.Background(), args, reply, nil)
+		err := xclient1.Call(context.Background(), args, reply)
 		if err != nil {
 			log.Fatalf("failed to call: %v", err)
 		}
 		log.Print("reply1: ", reply.Second)
 
-		err = xclient2.Call(context.Background(), args, reply, nil)
+		err = xclient2.Call(context.Background(), args, reply)
 		if err != nil {
 			log.Fatalf("failed to call: %v", err)
 		}
 		log.Print("reply2: ", reply.Second)
 
-		err = xclient3.Call(context.Background(), args, reply, nil)
+		err = xclient3.Call(context.Background(), args, reply)
 		if err != nil {
 			log.Fatalf("failed to call: %v", err)
 		}

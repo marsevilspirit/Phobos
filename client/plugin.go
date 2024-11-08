@@ -7,8 +7,8 @@ type PluginContainer interface {
 	Remove(plugin Plugin)
 	All() []Plugin
 
-	DoPreCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, metadata map[string]string) error
-	DoPostCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, metadata map[string]string, err error) error
+	DoPreCall(ctx context.Context, servicePath, serviceMethod string, args interface{}) error
+	DoPostCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, err error) error
 }
 
 type pluginContainer struct {
@@ -20,12 +20,12 @@ type Plugin interface{}
 type (
 	// PreCallPlugin is invoked before the client calls a server.
 	PreCallPlugin interface {
-		DoPreCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, metadata map[string]string) error
+		DoPreCall(ctx context.Context, servicePath, serviceMethod string, args interface{}) error
 	}
 
 	// PostCallPlugin is invoked after the client calls a server.
 	PostCallPlugin interface {
-		DoPostCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, metadata map[string]string, err error) error
+		DoPostCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, err error) error
 	}
 )
 
@@ -54,10 +54,10 @@ func (p *pluginContainer) All() []Plugin {
 }
 
 // DoPreCall executes before call
-func (p *pluginContainer) DoPreCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, metadata map[string]string) error {
+func (p *pluginContainer) DoPreCall(ctx context.Context, servicePath, serviceMethod string, args interface{}) error {
 	for i := range p.plugins {
 		if plugin, ok := p.plugins[i].(PreCallPlugin); ok {
-			err := plugin.DoPreCall(ctx, servicePath, serviceMethod, args, metadata)
+			err := plugin.DoPreCall(ctx, servicePath, serviceMethod, args)
 			if err != nil {
 				return err
 			}
@@ -68,10 +68,10 @@ func (p *pluginContainer) DoPreCall(ctx context.Context, servicePath, serviceMet
 }
 
 // DoPostCall executes after call
-func (p *pluginContainer) DoPostCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, metadata map[string]string, err error) error {
+func (p *pluginContainer) DoPostCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, err error) error {
 	for i := range p.plugins {
 		if plugin, ok := p.plugins[i].(PostCallPlugin); ok {
-			err := plugin.DoPostCall(ctx, servicePath, serviceMethod, args, reply, metadata, err)
+			err := plugin.DoPostCall(ctx, servicePath, serviceMethod, args, reply, err)
 			if err != nil {
 				return err
 			}
