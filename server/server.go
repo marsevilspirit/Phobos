@@ -60,7 +60,7 @@ type Server struct {
 
 	Plugins PluginContainer
 
-	AuthFunc func(req *protocol.Message, token string) error
+	AuthFunc func(ctx context.Context, req *protocol.Message, token string) error
 }
 
 func NewServer(options map[string]interface{}) *Server {
@@ -110,8 +110,6 @@ func (s *Server) Serve(network, address string) (err error) {
 }
 
 func (s *Server) serveListener(ln net.Listener) error {
-	s.ln = ln
-
 	if s.Plugins == nil {
 		s.Plugins = &pluginContainer{}
 	}
@@ -119,6 +117,7 @@ func (s *Server) serveListener(ln net.Listener) error {
 	var tempDelay time.Duration
 
 	s.mu.Lock()
+	s.ln = ln
 	if s.activeConn == nil {
 		s.activeConn = make(map[net.Conn]struct{})
 	}
@@ -253,6 +252,22 @@ func (s *Server) serveConn(conn net.Conn) {
 			conn.SetWriteDeadline(now.Add(s.WriteTimeout))
 		}
 
+		err = s.auth(ctx, req)
+		if err != nil {
+			s.Plugins.DoPreWriteResponse(ctx, req)
+			if !req.IsOneway() {
+				res := req.Clone()
+				res.SetMessageType(protocol.Response)
+				handleError(res, err)
+				data := res.Encode()
+				conn.Write(data)
+				s.Plugins.DoPostWriteResponse(ctx, req, res, err)
+				protocol.FreeMsg(res)
+			}
+			protocol.FreeMsg(req)
+			continue
+		}
+
 		go func() {
 			if req.IsHeartbeat() {
 				req.SetMessageType(protocol.Response)
@@ -303,13 +318,17 @@ func (s *Server) readRequest(ctx context.Context, r io.Reader) (req *protocol.Me
 
 	s.Plugins.DoPostReadRequest(ctx, req, err)
 
+	return req, err
+}
+
+func (s *Server) auth(ctx context.Context, req *protocol.Message) (err error) {
 	// 验证身份
-	if s.AuthFunc != nil && err == nil {
+	if s.AuthFunc != nil {
 		token := req.Metadata[share.AuthKey]
-		err = s.AuthFunc(req, token)
+		return s.AuthFunc(ctx, req, token)
 	}
 
-	return req, err
+	return nil
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *protocol.Message) (res *protocol.Message, err error) {
