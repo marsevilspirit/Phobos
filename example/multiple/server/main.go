@@ -19,7 +19,7 @@ func main() {
 	select {}
 }
 func createServer(addr string) {
-	s := server.NewServer(nil)
+	s := server.NewServer()
 	s.RegisterWithName("HelloWorld", new(example.HelloWorld), "")
 	s.Serve("tcp", addr)
 }

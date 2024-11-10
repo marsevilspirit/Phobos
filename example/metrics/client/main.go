@@ -17,9 +17,9 @@ func main() {
 	flag.Parse()
 
 	d := client.NewP2PDiscovery("tcp@"+*addr, "")
-	xclient1 := client.NewXClient("HelloWorld", "Greet", client.Failtry, client.RandomSelect, d, client.DefaultOption)
-	xclient2 := client.NewXClient("HelloWorld", "Greet", client.Failtry, client.RandomSelect, d, client.DefaultOption)
-	xclient3 := client.NewXClient("HelloWorld", "Greet", client.Failtry, client.RandomSelect, d, client.DefaultOption)
+	xclient1 := client.NewXClient("HelloWorld", client.Failtry, client.RandomSelect, d, client.DefaultOption)
+	xclient2 := client.NewXClient("HelloWorld", client.Failtry, client.RandomSelect, d, client.DefaultOption)
+	xclient3 := client.NewXClient("HelloWorld", client.Failtry, client.RandomSelect, d, client.DefaultOption)
 
 	defer xclient1.Close()
 	defer xclient2.Close()
@@ -33,19 +33,19 @@ func main() {
 
 	for i := 0; i < 10; i++ {
 
-		err := xclient1.Call(context.Background(), args, reply)
+		err := xclient1.Call(context.Background(), "Greet", args, reply)
 		if err != nil {
 			log.Fatalf("failed to call: %v", err)
 		}
 		log.Print("reply1: ", reply.Second)
 
-		err = xclient2.Call(context.Background(), args, reply)
+		err = xclient2.Call(context.Background(), "Greet", args, reply)
 		if err != nil {
 			log.Fatalf("failed to call: %v", err)
 		}
 		log.Print("reply2: ", reply.Second)
 
-		err = xclient3.Call(context.Background(), args, reply)
+		err = xclient3.Call(context.Background(), "Greet", args, reply)
 		if err != nil {
 			log.Fatalf("failed to call: %v", err)
 		}

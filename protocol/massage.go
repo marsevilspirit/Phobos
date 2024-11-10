@@ -418,13 +418,18 @@ func (m *Message) Decode(r io.Reader) error {
 }
 
 func (m *Message) Reset() {
-	for i := 0; i < 12; i++ {
-		m.Header[i] = 0
-	}
+	resetHeader(m.Header)
 
 	m.ServicePath = ""
 	m.ServiceMethod = ""
 	m.Metadata = nil
 	m.Payload = m.Payload[:0]
 	m.data = m.data[:0]
+}
+
+var zeroHeaderArray Header
+var zeroHeader = zeroHeaderArray[1:]
+
+func resetHeader(h *Header) {
+	copy(h[1:], zeroHeader)
 }

@@ -41,8 +41,8 @@ var (
 
 type Server struct {
 	ln           net.Listener
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
+	readTimeout  time.Duration
+	writeTimeout time.Duration
 
 	serviceMapMu sync.RWMutex
 	serviceMap   map[string]*service
@@ -54,20 +54,26 @@ type Server struct {
 	inShutdown int32
 	onShutdown []func()
 
-	TLSConfig *tls.Config
+	tlsConfig *tls.Config
 
-	Options map[string]interface{}
+	options map[string]interface{}
 
 	Plugins PluginContainer
 
 	AuthFunc func(ctx context.Context, req *protocol.Message, token string) error
 }
 
-func NewServer(options map[string]interface{}) *Server {
-	return &Server{
+func NewServer(options ...OptionFn) *Server {
+	s := &Server{
 		Plugins: &pluginContainer{},
-		Options: options,
+		options: make(map[string]interface{}),
 	}
+
+	for _, opt := range options {
+		opt(s)
+	}
+
+	return s
 }
 
 func (s *Server) Address() net.Addr {
@@ -215,10 +221,10 @@ func (s *Server) serveConn(conn net.Conn) {
 	}()
 
 	if tlsConn, ok := conn.(*tls.Conn); ok {
-		if d := s.ReadTimeout; d != 0 {
+		if d := s.readTimeout; d != 0 {
 			conn.SetReadDeadline(time.Now().Add(d))
 		}
-		if d := s.WriteTimeout; d != 0 {
+		if d := s.writeTimeout; d != 0 {
 			conn.SetWriteDeadline(time.Now().Add(d))
 		}
 		if err := tlsConn.Handshake(); err != nil {
@@ -232,8 +238,8 @@ func (s *Server) serveConn(conn net.Conn) {
 	for {
 		now := time.Now()
 
-		if s.ReadTimeout != 0 {
-			conn.SetReadDeadline(now.Add(s.ReadTimeout))
+		if s.readTimeout != 0 {
+			conn.SetReadDeadline(now.Add(s.readTimeout))
 		}
 
 		req, err := s.readRequest(ctx, r)
@@ -248,8 +254,8 @@ func (s *Server) serveConn(conn net.Conn) {
 			return
 		}
 
-		if s.WriteTimeout != 0 {
-			conn.SetWriteDeadline(now.Add(s.WriteTimeout))
+		if s.writeTimeout != 0 {
+			conn.SetWriteDeadline(now.Add(s.writeTimeout))
 		}
 
 		err = s.auth(ctx, req)

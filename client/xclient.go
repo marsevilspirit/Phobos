@@ -22,10 +22,10 @@ type XClient interface {
 	SetPlugins(plugins PluginContainer)
 	ConfigGeoSelector(latitude, longitude float64)
 	Auth(auth string)
-	Go(ctx context.Context, args, reply interface{}, done chan *Call) (*Call, error)
-	Call(ctx context.Context, args, reply interface{}) error
-	Broadcast(ctx context.Context, args, reply interface{}) error
-	Fork(ctx context.Context, args, reply interface{}) error
+	Go(ctx context.Context, serviceMethod string, args, reply interface{}, done chan *Call) (*Call, error)
+	Call(ctx context.Context, serviceMethod string, args, reply interface{}) error
+	Broadcast(ctx context.Context, serviceMethod string, args, reply interface{}) error
+	Fork(ctx context.Context, serviceMethod string, args, reply interface{}) error
 	Close() error
 }
 
@@ -68,16 +68,15 @@ type xClient struct {
 }
 
 // NewXClient 工厂函数，用于创建 xClient 实例
-func NewXClient(servicePath, serviceMethod string, failMode FailMode, selectMode SelectMode, discovery ServiceDiscovery, option Option) XClient {
+func NewXClient(servicePath string, failMode FailMode, selectMode SelectMode, discovery ServiceDiscovery, option Option) XClient {
 	// 初始化 xClient 结构体
 	client := &xClient{
-		failMode:      failMode,
-		selectMode:    selectMode,
-		discovery:     discovery,
-		servicePath:   servicePath,
-		serviceMethod: serviceMethod,
-		cachedClient:  make(map[string]RPCClient),
-		option:        option,
+		failMode:     failMode,
+		selectMode:   selectMode,
+		discovery:    discovery,
+		servicePath:  servicePath,
+		cachedClient: make(map[string]RPCClient),
+		option:       option,
 	}
 
 	ch := client.discovery.WatchService()
@@ -195,19 +194,19 @@ func splitNetworkAndAddress(server string) (string, string) {
 	return ss[0], ss[1]
 }
 
-func (c *xClient) wrapCall(ctx context.Context, client RPCClient, args interface{}, reply interface{}) error {
+func (c *xClient) wrapCall(ctx context.Context, client RPCClient, serviceMethod string, args interface{}, reply interface{}) error {
 	if client == nil {
 		return ErrServerUnavailable
 	}
 
-	c.Plugins.DoPreCall(ctx, c.servicePath, c.serviceMethod, args)
-	err := client.Call(ctx, c.servicePath, c.serviceMethod, args, reply)
-	c.Plugins.DoPostCall(ctx, c.servicePath, c.serviceMethod, args, reply, err)
+	c.Plugins.DoPreCall(ctx, c.servicePath, serviceMethod, args)
+	err := client.Call(ctx, c.servicePath, serviceMethod, args, reply)
+	c.Plugins.DoPostCall(ctx, c.servicePath, serviceMethod, args, reply, err)
 	return err
 }
 
 // Go 方法实现异步调用 RPC
-func (c *xClient) Go(ctx context.Context, args, reply interface{}, done chan *Call) (*Call, error) {
+func (c *xClient) Go(ctx context.Context, serviceMethod string, args, reply interface{}, done chan *Call) (*Call, error) {
 	if c.isShutdown {
 		return nil, ErrXClientShutdown
 	}
@@ -221,16 +220,16 @@ func (c *xClient) Go(ctx context.Context, args, reply interface{}, done chan *Ca
 		m[share.AuthKey] = c.auth
 	}
 
-	_, client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
+	_, client, err := c.selectClient(ctx, c.servicePath, serviceMethod, args)
 	if err != nil {
 		return nil, err
 	}
 
-	return client.Go(ctx, c.servicePath, c.serviceMethod, args, reply, done), nil
+	return client.Go(ctx, c.servicePath, serviceMethod, args, reply, done), nil
 }
 
 // Call 方法实现同步调用 RPC，通过调用 Go 方法并等待结果
-func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
+func (c *xClient) Call(ctx context.Context, serviceMethod string, args, reply interface{}) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
 	}
@@ -246,7 +245,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 
 	var err error
 
-	k, client, err := c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
+	k, client, err := c.selectClient(ctx, c.servicePath, serviceMethod, args)
 	if err != nil {
 		return err
 	}
@@ -256,7 +255,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 		retries := c.option.Retries
 		for retries > 0 {
 			retries--
-			err = c.wrapCall(ctx, client, args, reply)
+			err = c.wrapCall(ctx, client, serviceMethod, args, reply)
 			if err == nil {
 				return nil
 			}
@@ -270,7 +269,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 		retries := c.option.Retries
 		for retries > 0 {
 			retries--
-			err = c.wrapCall(ctx, client, args, reply)
+			err = c.wrapCall(ctx, client, serviceMethod, args, reply)
 			if err == nil {
 				return nil
 			}
@@ -278,12 +277,12 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 				c.removeClient(k, client)
 			}
 
-			k, client, _ = c.selectClient(ctx, c.servicePath, c.serviceMethod, args)
+			k, client, _ = c.selectClient(ctx, c.servicePath, serviceMethod, args)
 		}
 
 		return err
 	default: // Failfast
-		err = c.wrapCall(ctx, client, args, reply)
+		err = c.wrapCall(ctx, client, serviceMethod, args, reply)
 		if err != nil {
 			if _, ok := err.(ServiceError); !ok {
 				c.removeClient(k, client)
@@ -294,7 +293,7 @@ func (c *xClient) Call(ctx context.Context, args, reply interface{}) error {
 	}
 }
 
-func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}) error {
+func (c *xClient) Broadcast(ctx context.Context, serviceMethod string, args, reply interface{}) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
 	}
@@ -331,7 +330,7 @@ func (c *xClient) Broadcast(ctx context.Context, args, reply interface{}) error 
 	for _, client := range clients {
 		client := client
 		go func() {
-			err = c.wrapCall(ctx, client, args, reply)
+			err = c.wrapCall(ctx, client, serviceMethod, args, reply)
 			done <- (err == nil)
 		}()
 	}
@@ -354,7 +353,7 @@ check:
 	return err
 }
 
-func (c *xClient) Fork(ctx context.Context, args, reply interface{}) error {
+func (c *xClient) Fork(ctx context.Context, serviceMethod string, args, reply interface{}) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
 	}
@@ -394,7 +393,7 @@ func (c *xClient) Fork(ctx context.Context, args, reply interface{}) error {
 		go func() {
 			// 代码中只有在调用成功（err == nil）时才会更新原始的 reply 这样可以确保只有成功的调用结果才会被保存
 			clonedReply := reflect.New(reflect.ValueOf(reply).Elem().Type()).Interface()
-			err = c.wrapCall(ctx, client, args, clonedReply)
+			err = c.wrapCall(ctx, client, serviceMethod, args, clonedReply)
 			done <- (err == nil)
 			if err == nil {
 				reflect.ValueOf(reply).Set(reflect.ValueOf(clonedReply))

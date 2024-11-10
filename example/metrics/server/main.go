@@ -18,7 +18,7 @@ var (
 func main() {
 	flag.Parse()
 
-	s := server.NewServer(nil)
+	s := server.NewServer()
 
 	metrics := serverplugin.NewMetricsPlugin()
 	s.Plugins.Add(metrics)

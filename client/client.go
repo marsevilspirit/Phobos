@@ -388,7 +388,7 @@ func (client *Client) receive() {
 	}
 
 	client.mu.Unlock()
-	if err != io.EOF && !closing {
+	if err != nil && err != io.EOF && !closing {
 		log.Error("mrpc: client protocol error:", err)
 	}
 }
