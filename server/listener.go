@@ -14,6 +14,7 @@ func init() {
 	makeListeners["tcp"] = tcpMakeListener
 	makeListeners["http"] = tcpMakeListener
 	makeListeners["reuseport"] = reuseportMakeListener
+	makeListeners["unix"] = unixMakeListener
 }
 
 func RegisterListener(network string, ml MakeListener) {
@@ -59,4 +60,13 @@ func reuseportMakeListener(s *Server, address string) (ln net.Listener, err erro
 	ln, err = reuseport.Listen(network, address)
 
 	return ln, err
+}
+
+func unixMakeListener(s *Server, address string) (ln net.Listener, err error) {
+	laddr, err := net.ResolveUnixAddr("unix", address)
+	if err != nil {
+		return nil, err
+	}
+
+	return net.ListenUnix("unix", laddr)
 }
