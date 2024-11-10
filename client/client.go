@@ -256,7 +256,7 @@ func (client *Client) send(ctx context.Context, call *Call) {
 		*cseq = seq
 	}
 
-	req := protocol.NewMessage()
+	req := protocol.GetPoolMsg()
 	req.SetMessageType(protocol.Request)
 	req.SetSeq(seq)
 
@@ -293,6 +293,7 @@ func (client *Client) send(ctx context.Context, call *Call) {
 	}
 
 	data := req.Encode()
+	protocol.FreeMsg(req)
 	_, err := client.Conn.Write(data)
 	if err != nil {
 		client.mu.Lock()
@@ -319,10 +320,11 @@ func (client *Client) send(ctx context.Context, call *Call) {
 
 func (client *Client) receive() {
 	var err error
-	var res *protocol.Message
+	res := protocol.NewMessage()
 
 	for err == nil {
-		res, err = protocol.Read(client.r)
+		// res, err = protocol.Read(client.r)
+		err = res.Decode(client.r)
 
 		if err != nil {
 			break
@@ -364,6 +366,8 @@ func (client *Client) receive() {
 			call.ResMetadata = res.Metadata
 			call.done()
 		}
+
+		res.Reset()
 	}
 
 	client.mu.Lock()

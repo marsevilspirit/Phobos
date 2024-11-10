@@ -83,7 +83,7 @@ func newRoundRobinSelector(servers map[string]string) Selector {
 	return &roundRobinSelector{servers: ss}
 }
 
-func (s roundRobinSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
+func (s *roundRobinSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
 	ss := s.servers
 
 	if len(ss) == 0 {
@@ -114,7 +114,7 @@ func newWeightRoundRobinSelector(servers map[string]string) Selector {
 	return &weightedRoundRobinSelector{servers: ss}
 }
 
-func (s weightedRoundRobinSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
+func (s *weightedRoundRobinSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
 	ss := s.servers
 	if len(ss) == 0 {
 		return ""
@@ -179,7 +179,7 @@ func newGeoSelector(servers map[string]string, latitude, longitude float64) Sele
 	return &geoSelector{servers: ss, Latitude: latitude, Longitude: longitude, r: r}
 }
 
-func (s geoSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
+func (s *geoSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
 	if len(s.servers) == 0 {
 		return ""
 	}
@@ -249,7 +249,7 @@ func newConsistentHashSelector(servers map[string]string) Selector {
 	return &consistentHashSelector{servers: ss}
 }
 
-func (s consistentHashSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
+func (s *consistentHashSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
 	ss := s.servers
 
 	if len(ss) == 0 {

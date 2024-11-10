@@ -66,6 +66,7 @@ type Server struct {
 func NewServer(options map[string]interface{}) *Server {
 	return &Server{
 		Plugins: &pluginContainer{},
+		Options: options,
 	}
 }
 
@@ -288,6 +289,8 @@ func (s *Server) serveConn(conn net.Conn) {
 
 			s.Plugins.DoPostWriteResponse(newCtx, req, res, err)
 
+			protocol.FreeMsg(req)
+			protocol.FreeMsg(res)
 		}()
 	}
 }
@@ -295,7 +298,7 @@ func (s *Server) serveConn(conn net.Conn) {
 func (s *Server) readRequest(ctx context.Context, r io.Reader) (req *protocol.Message, err error) {
 	s.Plugins.DoPreReadRequest(ctx)
 
-	req = protocol.NewMessage()
+	req = protocol.GetPoolMsg()
 	err = req.Decode(r)
 
 	s.Plugins.DoPostReadRequest(ctx, req, err)

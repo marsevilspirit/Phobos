@@ -20,7 +20,7 @@ var (
 
 type XClient interface {
 	SetPlugins(plugins PluginContainer)
-	SetGeoSelector(latitude, longitude float64)
+	ConfigGeoSelector(latitude, longitude float64)
 	Auth(auth string)
 	Go(ctx context.Context, args, reply interface{}, done chan *Call) (*Call, error)
 	Call(ctx context.Context, args, reply interface{}) error
@@ -105,7 +105,9 @@ func (c *xClient) SetPlugins(plugins PluginContainer) {
 	c.Plugins = plugins
 }
 
-func (c *xClient) SetGeoSelector(latitude, longitude float64) {
+// ConfigGeoSelector sets location of client's latitude and longitude,
+// and use newGeoSelector.
+func (c *xClient) ConfigGeoSelector(latitude, longitude float64) {
 	c.selector = newGeoSelector(c.servers, latitude, longitude)
 }
 

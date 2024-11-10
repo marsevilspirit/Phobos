@@ -9,6 +9,11 @@ import (
 	"github.com/marsevilspirit/m_RPC/util"
 )
 
+// MaxMessageLength is the max length of a message.
+// Default is 0 that means does not limit length of messages.
+// It is used to validate when read messages from io.Reader.
+var MaxMessageLength = 0
+
 const (
 	magicNumber byte = 0x42
 )
@@ -19,6 +24,7 @@ var (
 
 var (
 	ErrMetaKVMissing = errors.New("wrong metadata lines. some keys or values are missing")
+	ErrMessageToLong = errors.New("message is too long")
 )
 
 const (
@@ -166,11 +172,12 @@ func (h *Header) SetSeq(seq uint64) {
 
 func (m Message) Clone() *Message {
 	header := *m.Header
-	c := &Message{
-		Header:        &header,
-		ServicePath:   m.ServicePath,
-		ServiceMethod: m.ServiceMethod,
-	}
+
+	c := GetPoolMsg()
+	c.Header = &header
+	c.ServicePath = m.ServicePath
+	c.ServiceMethod = m.ServiceMethod
+
 	return c
 }
 
@@ -360,6 +367,11 @@ func (m *Message) Decode(r io.Reader) error {
 
 	l := binary.BigEndian.Uint32(*lenData)
 	poolUint32Data.Put(lenData)
+
+	if MaxMessageLength > 0 && int(l) > MaxMessageLength {
+		return ErrMessageToLong
+	}
+
 	data := make([]byte, int(l))
 	_, err = io.ReadFull(r, data)
 	if err != nil {
@@ -403,4 +415,16 @@ func (m *Message) Decode(r io.Reader) error {
 	m.Payload = data[n:]
 
 	return err
+}
+
+func (m *Message) Reset() {
+	for i := 0; i < 12; i++ {
+		m.Header[i] = 0
+	}
+
+	m.ServicePath = ""
+	m.ServiceMethod = ""
+	m.Metadata = nil
+	m.Payload = m.Payload[:0]
+	m.data = m.data[:0]
 }
