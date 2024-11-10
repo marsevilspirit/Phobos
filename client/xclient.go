@@ -91,13 +91,17 @@ func NewXClient(servicePath string, failMode FailMode, selectMode SelectMode, di
 		servers[p.Key] = p.Value
 	}
 	client.servers = servers
-	if selectMode != Closest {
+	if selectMode != Closest && selectMode != SelectByUser {
 		client.selector = newSelector(selectMode, servers)
 	}
 
 	client.Plugins = &pluginContainer{}
 
 	return client
+}
+
+func (c *xClient) SetSelector(s Selector) {
+	c.selector = s
 }
 
 func (c *xClient) SetPlugins(plugins PluginContainer) {
@@ -247,7 +251,13 @@ func (c *xClient) Call(ctx context.Context, serviceMethod string, args, reply in
 
 	k, client, err := c.selectClient(ctx, c.servicePath, serviceMethod, args)
 	if err != nil {
-		return err
+		if c.failMode == Failfast {
+			return err
+		}
+
+		if _, ok := err.(ServiceError); ok {
+			return err
+		}
 	}
 
 	switch c.failMode {
@@ -259,9 +269,10 @@ func (c *xClient) Call(ctx context.Context, serviceMethod string, args, reply in
 			if err == nil {
 				return nil
 			}
-			if _, ok := err.(ServiceError); !ok {
-				c.removeClient(k, client)
+			if _, ok := err.(ServiceError); ok {
+				return err
 			}
+			c.removeClient(k, client)
 			client, _ = c.getCachedClient(k)
 		}
 		return err
@@ -273,9 +284,11 @@ func (c *xClient) Call(ctx context.Context, serviceMethod string, args, reply in
 			if err == nil {
 				return nil
 			}
-			if _, ok := err.(ServiceError); !ok {
-				c.removeClient(k, client)
+			if _, ok := err.(ServiceError); ok {
+				return err
 			}
+
+			c.removeClient(k, client)
 
 			k, client, _ = c.selectClient(ctx, c.servicePath, serviceMethod, args)
 		}

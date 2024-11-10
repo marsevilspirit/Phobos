@@ -30,6 +30,8 @@ func newSelector(selectMode SelectMode, servers map[string]string) Selector {
 		return newConsistentHashSelector(servers)
 	// case Closest:
 	// 	return newConsistentHashSelector(servers)
+	case SelectByUser:
+		return nil
 	default:
 		return newRandomSelector(servers)
 	}

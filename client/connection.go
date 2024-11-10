@@ -20,8 +20,10 @@ func (c *Client) Connect(network, address string) error {
 	switch network {
 	case "http":
 		conn, err = newDirectHTTPConn(c, network, address)
+	case "unix":
+		conn, err = newDirectConn(c, network, address)
 	default:
-		conn, err = newDirectTCPConn(c, network, address)
+		conn, err = newDirectConn(c, network, address)
 	}
 
 	if err == nil && conn != nil {
@@ -46,7 +48,7 @@ func (c *Client) Connect(network, address string) error {
 	return err
 }
 
-func newDirectTCPConn(c *Client, network, address string) (net.Conn, error) {
+func newDirectConn(c *Client, network, address string) (net.Conn, error) {
 	var conn net.Conn
 	var tlsConn *tls.Conn
 	var err error

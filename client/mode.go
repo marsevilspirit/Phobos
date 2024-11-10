@@ -28,6 +28,8 @@ const (
 	ConsistentHash
 	// Closest 模式表示选择最接近的候选者
 	Closest
+	// SelectByUser 模式表示由用户自定义选择候选者
+	SelectByUser
 )
 
 // `[...]string` 的声明方式表明数组的长度是根据初始化时的元素个数自动推断的
