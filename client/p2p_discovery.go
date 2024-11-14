@@ -9,8 +9,12 @@ func NewP2PDiscovery(server, metadata string) ServiceDiscovery {
 	return &p2pDiscovery{server: server, metadata: metadata}
 }
 
+func (d p2pDiscovery) Clone(servicePath string) ServiceDiscovery {
+	return &d
+}
+
 func (d p2pDiscovery) GetServices() []*KVPair {
-	return []*KVPair{&KVPair{Key: d.server, Value: d.metadata}}
+	return []*KVPair{{Key: d.server, Value: d.metadata}}
 }
 
 func (d p2pDiscovery) WatchService() chan []*KVPair {

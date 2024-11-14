@@ -106,6 +106,43 @@ type Client struct {
 	Plugins PluginContainer
 }
 
+func NewClient(options Option) *Client {
+	client := &Client{
+		option:  options,
+		pending: make(map[uint64]*Call),
+	}
+
+	if client.option.ConnectTimeout == 0 {
+		client.option.ConnectTimeout = DefaultOption.ConnectTimeout
+	}
+
+	if client.option.ReadTimeout == 0 {
+		client.option.ReadTimeout = DefaultOption.ReadTimeout
+	}
+
+	if client.option.WriteTimeout == 0 {
+		client.option.WriteTimeout = DefaultOption.WriteTimeout
+	}
+
+	if client.option.Breaker == nil {
+		client.option.Breaker = DefaultOption.Breaker
+	}
+
+	if client.option.SerializeType == 0 {
+		client.option.SerializeType = DefaultOption.SerializeType
+	}
+
+	if client.option.CompressType == 0 {
+		client.option.CompressType = DefaultOption.CompressType
+	}
+
+	if client.option.HeartbeatInterval == 0 {
+		client.option.HeartbeatInterval = 3 * time.Second
+	}
+
+	return client
+}
+
 type Option struct {
 	Retries int
 

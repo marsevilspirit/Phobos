@@ -18,6 +18,10 @@ func NewMultipleServersDiscovery(pairs []*KVPair) ServiceDiscovery {
 	}
 }
 
+func (d MultipleServersDiscovery) Clone(servicePath string) ServiceDiscovery {
+	return &d
+}
+
 func (d MultipleServersDiscovery) GetServices() []*KVPair {
 	return d.pairs
 }

@@ -9,7 +9,7 @@ import (
 )
 
 func createICMPWeighted(servers map[string]string) []*Weighted {
-	var ss []*Weighted
+	ss := make([]*Weighted, 0, len(servers))
 	for k := range servers {
 		w := &Weighted{Server: k, Weight: 1, EffectiveWeight: 1}
 		server := strings.Split(k, "@")

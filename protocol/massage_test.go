@@ -135,6 +135,10 @@ func TestMessage_EncodeDecode(t *testing.T) {
 		t.Errorf("expect Version 0, got %d", res.Version())
 	}
 
+	if res.MessageType() != Response {
+		t.Errorf("expect MessageType Response, got %d", res.MessageType())
+	}
+
 	if res.Seq() != 114514 {
 		t.Errorf("expect Seq 114514, got %d", res.Seq())
 	}

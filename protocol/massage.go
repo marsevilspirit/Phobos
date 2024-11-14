@@ -106,7 +106,7 @@ func (h *Header) SetVersion(v byte) {
 // 0x80在二进制中是1000 0000
 // 用 & 提取第三字节的最高位
 func (h Header) MessageType() MessageType {
-	return MessageType(h[2] & 0x80)
+	return MessageType(h[2]&0x80) >> 7
 }
 
 func (h *Header) SetMessageType(mt MessageType) {

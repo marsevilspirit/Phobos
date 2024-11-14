@@ -20,6 +20,7 @@ var (
 
 type XClient interface {
 	SetPlugins(plugins PluginContainer)
+	SetSelector(s Selector)
 	ConfigGeoSelector(latitude, longitude float64)
 	Auth(auth string)
 	Go(ctx context.Context, serviceMethod string, args, reply interface{}, done chan *Call) (*Call, error)
@@ -40,6 +41,8 @@ type ServiceDiscovery interface {
 	GetServices() []*KVPair
 	// 监听服务变化，返回服务变化的通道
 	WatchService() chan []*KVPair
+	// Clone 方法，用于克隆 ServiceDiscovery
+	Clone(ServicePath string) ServiceDiscovery
 }
 
 // xClient 结构体实现 XClient 接口
@@ -79,11 +82,6 @@ func NewXClient(servicePath string, failMode FailMode, selectMode SelectMode, di
 		option:       option,
 	}
 
-	ch := client.discovery.WatchService()
-	if ch != nil {
-		go client.watch(ch)
-	}
-
 	// 更新服务列表
 	servers := make(map[string]string)
 	pairs := discovery.GetServices()
@@ -97,10 +95,19 @@ func NewXClient(servicePath string, failMode FailMode, selectMode SelectMode, di
 
 	client.Plugins = &pluginContainer{}
 
+	ch := client.discovery.WatchService()
+	if ch != nil {
+		go client.watch(ch)
+	}
+
 	return client
 }
 
 func (c *xClient) SetSelector(s Selector) {
+	c.mu.RLock()
+	s.UpdateServer(c.servers)
+	c.mu.RUnlock()
+
 	c.selector = s
 }
 
@@ -112,6 +119,7 @@ func (c *xClient) SetPlugins(plugins PluginContainer) {
 // and use newGeoSelector.
 func (c *xClient) ConfigGeoSelector(latitude, longitude float64) {
 	c.selector = newGeoSelector(c.servers, latitude, longitude)
+	c.selectMode = Closest
 }
 
 func (c *xClient) Auth(auth string) {
@@ -127,6 +135,11 @@ func (c *xClient) watch(ch chan []*KVPair) {
 		}
 		c.mu.Lock()
 		c.servers = servers
+
+		if c.selector != nil {
+			c.selector.UpdateServer(servers)
+		}
+
 		c.mu.Unlock()
 	}
 }

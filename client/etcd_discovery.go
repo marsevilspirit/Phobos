@@ -35,10 +35,12 @@ func NewEtcdDiscovery(basePath string, etcdAddr []string) ServiceDiscovery {
 }
 
 func NewEtcdDiscoveryStore(basePath string, kv store.Store) ServiceDiscovery {
+	if len(basePath) > 1 && strings.HasSuffix(basePath, "/") {
+		basePath = basePath[:len(basePath)-1]
+	}
 
 	// mrpc_example/HelloWorld
 	d := &EtcdDiscovery{basePath: basePath, kv: kv}
-	go d.watch()
 
 	ps, err := kv.List(basePath)
 	if err != nil {
@@ -46,7 +48,7 @@ func NewEtcdDiscoveryStore(basePath string, kv store.Store) ServiceDiscovery {
 		panic(err)
 	}
 
-	var pairs []*KVPair
+	pairs := make([]*KVPair, 0, len(ps))
 	var prefix string
 	for _, p := range ps {
 		if prefix == "" {
@@ -73,7 +75,14 @@ func NewEtcdDiscoveryStore(basePath string, kv store.Store) ServiceDiscovery {
 
 	d.pairs = pairs
 	d.RetriesAfterWatchFailed = -1
+
+	go d.watch()
+
 	return d
+}
+
+func (d EtcdDiscovery) Clone(servicePath string) ServiceDiscovery {
+	return NewEtcdDiscoveryStore(d.basePath+"/"+servicePath, d.kv)
 }
 
 func (d EtcdDiscovery) GetServices() []*KVPair {
