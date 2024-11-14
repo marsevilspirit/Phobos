@@ -63,8 +63,12 @@ func (p *EtcdRegisterPlugin) Start() error {
 
 			// refresh service TTL
 			for range ticker.C {
-				clientMeter := metrics.GetOrRegisterMeter("clientMeter", p.Metrics)
-				data := []byte(strconv.FormatInt(clientMeter.Count()/60, 10))
+				var data []byte
+
+				if p.Metrics != nil {
+					clientMeter := metrics.GetOrRegisterMeter("clientMeter", p.Metrics)
+					data = []byte(strconv.FormatInt(clientMeter.Count()/60, 10))
+				}
 				//set this same metrics for all services at this server
 				for _, name := range p.Services {
 					nodePath := fmt.Sprintf("%s/%s/%s", p.BasePath, name, p.ServiceAddress)
@@ -76,14 +80,14 @@ func (p *EtcdRegisterPlugin) Start() error {
 						metadata := p.metaMap[name]
 						p.metasLock.RUnlock()
 
-						err = p.kv.Put(nodePath, []byte(metadata), &store.WriteOptions{TTL: p.UpdateInterval * 2})
+						err = p.kv.Put(nodePath, []byte(metadata), &store.WriteOptions{TTL: p.UpdateInterval * 3})
 						if err != nil {
 							log.Errorf("cannot create etcd path %s: %v", nodePath, err)
 						}
 					} else {
 						v, _ := url.ParseQuery(string(kvPair.Value))
 						v.Set("tps", string(data))
-						p.kv.Put(nodePath, []byte(v.Encode()), &store.WriteOptions{TTL: p.UpdateInterval * 2})
+						p.kv.Put(nodePath, []byte(v.Encode()), &store.WriteOptions{TTL: p.UpdateInterval * 3})
 					}
 				}
 
