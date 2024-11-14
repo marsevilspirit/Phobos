@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"log"
 
@@ -10,16 +11,23 @@ import (
 )
 
 var (
-	etcdAddr = flag.String("etcdAddr", "localhost:2379", "etcdaddress")
-	basePath = flag.String("base", "/mrpc_example/HelloWorld", "prefix path")
+	addr = flag.String("addr", "localhost:30000", "server address")
 )
 
 func main() {
 	flag.Parse()
 
-	d := client.NewEtcdDiscovery(*basePath, []string{*etcdAddr})
+	d := client.NewP2PDiscovery("tcp@"+*addr, "")
 
-	xclient := client.NewXClient("HelloWorld", client.Failtry, client.RandomSelect, d, client.DefaultOption)
+	option := client.DefaultOption
+
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	option.TLSConfig = conf
+
+	xclient := client.NewXClient("HelloWorld", client.Failtry, client.RandomSelect, d, option)
 	defer xclient.Close()
 
 	args := &example.Args{
@@ -30,7 +38,7 @@ func main() {
 
 	err := xclient.Call(context.Background(), "Greet", args, reply)
 	if err != nil {
-		log.Fatalf("failed to call: %v", err)
+		panic(err)
 	}
 
 	log.Printf("reply: %v", reply.Second)
