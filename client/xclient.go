@@ -9,6 +9,7 @@ import (
 	"time"
 
 	ex "github.com/marsevilspirit/m_RPC/errors"
+	"github.com/marsevilspirit/m_RPC/protocol"
 	"github.com/marsevilspirit/m_RPC/share"
 )
 
@@ -27,6 +28,7 @@ type XClient interface {
 	Call(ctx context.Context, serviceMethod string, args, reply interface{}) error
 	Broadcast(ctx context.Context, serviceMethod string, args, reply interface{}) error
 	Fork(ctx context.Context, serviceMethod string, args, reply interface{}) error
+	SendRaw(ctx context.Context, r *protocol.Message) (map[string]string, []byte, error)
 	Close() error
 }
 
@@ -316,6 +318,78 @@ func (c *xClient) Call(ctx context.Context, serviceMethod string, args, reply in
 		}
 
 		return err
+	}
+}
+
+func (c *xClient) SendRaw(ctx context.Context, r *protocol.Message) (map[string]string, []byte, error) {
+	if c.isShutdown {
+		return nil, nil, ErrXClientShutdown
+	}
+
+	if c.auth != "" {
+		metadata := ctx.Value(share.ReqMetaDataKey)
+		if metadata == nil {
+			return nil, nil, errors.New("must set ReqMetaDataKey in context")
+		}
+		m := metadata.(map[string]string)
+		m[share.AuthKey] = c.auth
+	}
+
+	k, client, err := c.selectClient(ctx, c.servicePath, r.ServiceMethod, r.Payload)
+	if err != nil {
+		if c.failMode == Failfast {
+			return nil, nil, err
+		}
+
+		if _, ok := err.(ServiceError); ok {
+			return nil, nil, err
+		}
+	}
+
+	switch c.failMode {
+	case Failtry:
+		retries := c.option.Retries
+		for retries > 0 {
+			retries--
+			m, payload, err := client.SendRaw(ctx, r)
+			if err == nil {
+				return m, payload, nil
+			}
+
+			if _, ok := err.(ServiceError); ok {
+				return nil, nil, err
+			}
+
+			c.removeClient(k, client)
+			client, _ = c.getCachedClient(k)
+		}
+		return nil, nil, err
+	case Failover:
+		retries := c.option.Retries
+		for retries > 0 {
+			retries--
+			m, payload, err := client.SendRaw(ctx, r)
+			if err == nil {
+				return m, payload, nil
+			}
+			if _, ok := err.(ServiceError); ok {
+				return nil, nil, err
+			}
+
+			c.removeClient(k, client)
+			k, client, _ = c.selectClient(ctx, c.servicePath, r.ServiceMethod, r.Payload)
+		}
+		return nil, nil, err
+	default: // Failfast
+		m, payload, err := client.SendRaw(ctx, r)
+
+		if err != nil {
+			if _, ok := err.(ServiceError); !ok {
+				c.removeClient(k, client)
+			}
+		}
+
+		return m, payload, err
 	}
 }
 

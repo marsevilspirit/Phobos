@@ -2,11 +2,14 @@ package client
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
 	"io"
 	"net"
+	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,6 +18,20 @@ import (
 	"github.com/marsevilspirit/m_RPC/protocol"
 	"github.com/marsevilspirit/m_RPC/share"
 	"github.com/marsevilspirit/m_RPC/util"
+)
+
+const (
+	GatewayVersion           = "MRPC-Gateway-Version"
+	GatewayMessageType       = "MRPC-Gateway-MessageType"
+	GatewayHeartbeat         = "MRPC-Gateway-Heartbeat"
+	GatewayOneway            = "MRPC-Gateway-Oneway"
+	GatewayMessageStatusType = "MRPC-Gateway-MessageStatusType"
+	GatewaySerializeType     = "MRPC-Gateway-SerializeType"
+	GatewayMessageID         = "MRPC-Gateway-MessageID"
+	GatewayServicePath       = "MRPC-Gateway-ServicePath"
+	GatewayServiceMethod     = "MRPC-Gateway-ServiceMethod"
+	GatewayMeta              = "MRPC-Gateway-Meta"
+	GatewayErrorMessage      = "MRPC-Gateway-ErrorMessage"
 )
 
 // ServiceError is the error interface for service error
@@ -67,6 +84,7 @@ type Call struct {
 	Reply interface{}
 	Error error
 	Done  chan *Call
+	IsRaw bool
 }
 
 func (call *Call) done() {
@@ -85,6 +103,7 @@ type RPCClient interface {
 	Connect(network, address string) error
 	Go(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, done chan *Call) *Call
 	Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error
+	SendRaw(ctx context.Context, r *protocol.Message) (map[string]string, []byte, error)
 	Close() error
 	IsClosing() bool
 	IsShutdown() bool
@@ -226,6 +245,116 @@ func (client *Client) call(ctx context.Context, servicePath, serviceMethod strin
 	}
 
 	return err
+}
+
+func (client *Client) SendRaw(ctx context.Context, r *protocol.Message) (map[string]string, []byte, error) {
+	ctx = context.WithValue(ctx, seqKey{}, r.Seq())
+
+	call := new(Call)
+	call.IsRaw = true
+	call.ServicePath = r.ServicePath
+	call.ServiceMethod = r.ServiceMethod
+	meta := ctx.Value(share.ReqMetaDataKey)
+	if meta != nil {
+		call.Metadata = meta.(map[string]string)
+	}
+	done := make(chan *Call, 10)
+	call.Done = done
+
+	seq := r.Seq()
+	client.mu.Lock()
+	client.pending[seq] = call
+	client.mu.Unlock()
+
+	data := r.Encode()
+	_, err := client.Conn.Write(data)
+	if err != nil {
+		client.mu.Lock()
+		call = client.pending[seq]
+		delete(client.pending, seq)
+		client.mu.Unlock()
+		if call != nil {
+			call.Error = err
+			call.done()
+		}
+	}
+	if r.IsOneway() {
+		client.mu.Lock()
+		call = client.pending[seq]
+		delete(client.pending, seq)
+		client.mu.Unlock()
+		if call != nil {
+			call.done()
+		}
+	}
+
+	var m map[string]string
+	var payload []byte
+
+	select {
+	case <-ctx.Done():
+		client.mu.Lock()
+		call := client.pending[seq]
+		delete(client.pending, seq)
+		client.mu.Unlock()
+		if call != nil {
+			call.Error = ctx.Err()
+			call.done()
+		}
+
+		return nil, nil, ctx.Err()
+	case call := <-done:
+		err = call.Error
+		m = call.ResMetadata
+		if call.Reply != nil {
+			payload = call.Reply.([]byte)
+		}
+	}
+
+	return m, payload, err
+}
+
+func convertRes2Raw(res *protocol.Message) (map[string]string, []byte, error) {
+	m := make(map[string]string)
+	m[GatewayVersion] = strconv.Itoa(int(res.Version()))
+
+	if res.IsHeartbeat() {
+		m[GatewayHeartbeat] = "true"
+	}
+
+	if res.IsOneway() {
+		m[GatewayOneway] = "true"
+	}
+
+	if res.MessageStatusType() == protocol.Error {
+		m[GatewayMessageStatusType] = "Error"
+	} else {
+		m[GatewayMessageStatusType] = "Normal"
+	}
+
+	if res.CompressType() != protocol.Gzip {
+		m["Content-Encoding"] = "gzip"
+	}
+
+	m[GatewayMeta] = urlencode(res.Metadata)
+	m[GatewaySerializeType] = strconv.Itoa(int(res.SerializeType()))
+	m[GatewayMessageID] = strconv.FormatUint(res.Seq(), 10)
+	m[GatewayServicePath] = res.ServicePath
+	m[GatewayServiceMethod] = res.ServiceMethod
+
+	return m, res.Payload, nil
+}
+
+func urlencode(data map[string]string) string {
+	var buf bytes.Buffer
+	for k, v := range data {
+		buf.WriteString(url.QueryEscape(k))
+		buf.WriteByte('=')
+		buf.WriteString(url.QueryEscape(v))
+		buf.WriteByte('&')
+	}
+	s := buf.String()
+	return s[:len(s)-1]
 }
 
 // IsClosing client is closing or not.
@@ -380,28 +509,37 @@ func (client *Client) receive() {
 		case res.MessageStatusType() == protocol.Error:
 			call.Error = ServiceError(res.Metadata[protocol.ServiceError])
 			call.ResMetadata = res.Metadata
+
+			if call.IsRaw {
+				call.Metadata, call.Reply, _ = convertRes2Raw(res)
+				call.Metadata[GatewayErrorMessage] = call.Error.Error()
+			}
 			call.done()
 		default:
-			data := res.Payload
-			if len(data) > 0 {
-				if res.CompressType() == protocol.Gzip {
-					data, err = util.Unzip(data)
-					if err != nil {
-						call.Error = ServiceError("unzip payload: " + err.Error())
+			if call.IsRaw {
+				call.Metadata, call.Reply, _ = convertRes2Raw(res)
+			} else {
+				data := res.Payload
+				if len(data) > 0 {
+					if res.CompressType() == protocol.Gzip {
+						data, err = util.Unzip(data)
+						if err != nil {
+							call.Error = ServiceError("unzip payload: " + err.Error())
+						}
 					}
-				}
 
-				codec := share.Codecs[res.SerializeType()]
-				if codec == nil {
-					call.Error = ServiceError(ErrUnspportedCodec.Error())
-				} else {
-					err = codec.Decode(data, call.Reply)
-					if err != nil {
-						call.Error = ServiceError("decode payload: " + err.Error())
+					codec := share.Codecs[res.SerializeType()]
+					if codec == nil {
+						call.Error = ServiceError(ErrUnspportedCodec.Error())
+					} else {
+						err = codec.Decode(data, call.Reply)
+						if err != nil {
+							call.Error = ServiceError("decode payload: " + err.Error())
+						}
 					}
 				}
+				call.ResMetadata = res.Metadata
 			}
-			call.ResMetadata = res.Metadata
 			call.done()
 		}
 
