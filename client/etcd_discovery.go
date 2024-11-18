@@ -2,6 +2,7 @@ package client
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/marsevilspirit/m_RPC/log"
@@ -20,6 +21,7 @@ type EtcdDiscovery struct {
 	kv       store.Store
 	pairs    []*KVPair
 	chans    []chan []*KVPair
+	mu       sync.Mutex
 
 	RetriesAfterWatchFailed int
 }
@@ -95,6 +97,18 @@ func (d *EtcdDiscovery) WatchService() chan []*KVPair {
 	return ch
 }
 
+func (d *EtcdDiscovery) RemoveWatcher(ch chan []*KVPair) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	for i, c := range d.chans {
+		if c == ch {
+			d.chans = append(d.chans[:i], d.chans[i+1:]...)
+			return
+		}
+	}
+}
+
 func (d *EtcdDiscovery) watch() {
 	for {
 		var err error
@@ -159,6 +173,11 @@ func (d *EtcdDiscovery) watch() {
 			for _, ch := range d.chans {
 				ch := ch
 				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Warn("watcher chan is closed")
+						}
+					}()
 					select {
 					case ch <- pairs:
 					case <-time.After(time.Minute):

@@ -20,3 +20,5 @@ func (d p2pDiscovery) GetServices() []*KVPair {
 func (d p2pDiscovery) WatchService() chan []*KVPair {
 	return nil
 }
+
+func (d *p2pDiscovery) RemoveWatcher(ch chan []*KVPair) {}

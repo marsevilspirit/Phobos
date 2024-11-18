@@ -43,6 +43,8 @@ type ServiceDiscovery interface {
 	GetServices() []*KVPair
 	// 监听服务变化，返回服务变化的通道
 	WatchService() chan []*KVPair
+	// 移除服务变化的监听
+	RemoveWatcher(ch chan []*KVPair)
 	// Clone 方法，用于克隆 ServiceDiscovery
 	Clone(ServicePath string) ServiceDiscovery
 }
@@ -70,6 +72,8 @@ type xClient struct {
 	// Longitude float64
 
 	Plugins PluginContainer
+
+	ch chan []*KVPair
 }
 
 // NewXClient 工厂函数，用于创建 xClient 实例
@@ -99,6 +103,7 @@ func NewXClient(servicePath string, failMode FailMode, selectMode SelectMode, di
 
 	ch := client.discovery.WatchService()
 	if ch != nil {
+		client.ch = ch
 		go client.watch(ch)
 	}
 
@@ -539,6 +544,16 @@ func (c *xClient) Close() error {
 		delete(c.cachedClient, k)
 	}
 	c.mu.Unlock()
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+			}
+		}()
+	}()
+
+	c.discovery.RemoveWatcher(c.ch)
+	close(c.ch)
 
 	if len(errs) > 0 {
 		return ex.NewMultiError(errs)
