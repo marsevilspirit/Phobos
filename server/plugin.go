@@ -14,6 +14,7 @@ type PluginContainer interface {
 	All() []Plugin
 
 	DoRegister(name string, rcvr interface{}, metadata string) error
+	DoRegisterFunction(name string, fn interface{}, metadata string) error
 
 	DoPostConnAccept(net.Conn) (net.Conn, bool)
 
@@ -29,6 +30,10 @@ type Plugin interface{}
 type (
 	RegisterPlugin interface {
 		Register(name string, rcvr interface{}, metadata string) error
+	}
+
+	RegisterFunctionPlugin interface {
+		RegisterFunction(name string, fn interface{}, metadata string) error
 	}
 
 	PostConnAcceptPlugin interface {
@@ -81,9 +86,27 @@ func (p *pluginContainer) All() []Plugin {
 
 func (p *pluginContainer) DoRegister(name string, rcvr interface{}, metadata string) error {
 	var es []error
-	for i := range p.plugins {
-		if plugin, ok := p.plugins[i].(RegisterPlugin); ok {
+	for _, rp := range p.plugins {
+		if plugin, ok := rp.(RegisterPlugin); ok {
 			err := plugin.Register(name, rcvr, metadata)
+			if err != nil {
+				es = append(es, err)
+			}
+		}
+	}
+
+	if len(es) > 0 {
+		return errors.NewMultiError(es)
+	}
+
+	return nil
+}
+
+func (p *pluginContainer) DoRegisterFunction(name string, fn interface{}, metadata string) error {
+	var es []error
+	for _, rp := range p.plugins {
+		if plugin, ok := rp.(RegisterFunctionPlugin); ok {
+			err := plugin.RegisterFunction(name, fn, metadata)
 			if err != nil {
 				es = append(es, err)
 			}
@@ -99,8 +122,8 @@ func (p *pluginContainer) DoRegister(name string, rcvr interface{}, metadata str
 
 func (p *pluginContainer) DoPostConnAccept(conn net.Conn) (net.Conn, bool) {
 	var flag bool
-	for i := range p.plugins {
-		if plugin, ok := p.plugins[i].(PostConnAcceptPlugin); ok {
+	for _, rp := range p.plugins {
+		if plugin, ok := rp.(PostConnAcceptPlugin); ok {
 			conn, flag = plugin.HandleConnAccept(conn)
 			if !flag {
 				conn.Close()
@@ -113,8 +136,8 @@ func (p *pluginContainer) DoPostConnAccept(conn net.Conn) (net.Conn, bool) {
 }
 
 func (p *pluginContainer) DoPreReadRequest(ctx context.Context) error {
-	for i := range p.plugins {
-		if plugin, ok := p.plugins[i].(PreReadRequestPlugin); ok {
+	for _, rp := range p.plugins {
+		if plugin, ok := rp.(PreReadRequestPlugin); ok {
 			err := plugin.PreReadRequest(ctx)
 			if err != nil {
 				return err
@@ -126,8 +149,8 @@ func (p *pluginContainer) DoPreReadRequest(ctx context.Context) error {
 }
 
 func (p *pluginContainer) DoPostReadRequest(ctx context.Context, r *protocol.Message, e error) error {
-	for i := range p.plugins {
-		if plugin, ok := p.plugins[i].(PostReadRequestPlugin); ok {
+	for _, rp := range p.plugins {
+		if plugin, ok := rp.(PostReadRequestPlugin); ok {
 			err := plugin.PostReadRequest(ctx, r, e)
 			if err != nil {
 				return err
@@ -139,8 +162,8 @@ func (p *pluginContainer) DoPostReadRequest(ctx context.Context, r *protocol.Mes
 }
 
 func (p *pluginContainer) DoPreWriteResponse(ctx context.Context, req *protocol.Message) error {
-	for i := range p.plugins {
-		if plugin, ok := p.plugins[i].(PreWriteResponsePlugin); ok {
+	for _, rp := range p.plugins {
+		if plugin, ok := rp.(PreWriteResponsePlugin); ok {
 			err := plugin.PreWriteResponse(ctx, req)
 			if err != nil {
 				return err
@@ -152,8 +175,8 @@ func (p *pluginContainer) DoPreWriteResponse(ctx context.Context, req *protocol.
 }
 
 func (p *pluginContainer) DoPostWriteResponse(ctx context.Context, req *protocol.Message, resp *protocol.Message, e error) error {
-	for i := range p.plugins {
-		if plugin, ok := p.plugins[i].(PostWriteResponsePlugin); ok {
+	for _, rp := range p.plugins {
+		if plugin, ok := rp.(PostWriteResponsePlugin); ok {
 			err := plugin.PostWriteResponse(ctx, req, resp, e)
 			if err != nil {
 				return err

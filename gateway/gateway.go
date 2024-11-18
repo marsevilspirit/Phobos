@@ -81,7 +81,7 @@ func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, ps httpr
 	xc = g.xclients[servicePath]
 	g.mu.Unlock()
 
-	fmt.Println("@@@@@: %+v\n", req)
+	fmt.Printf("@@@@@: %+v\n", req)
 	m, payload, err := xc.SendRaw(context.Background(), req)
 	for k, v := range m {
 		wh.Set(k, v)

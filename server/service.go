@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"go/ast"
 	"reflect"
+	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/marsevilspirit/m_RPC/log"
@@ -23,11 +25,20 @@ type methodType struct {
 	numCalls  uint
 }
 
+type functionType struct {
+	sync.Mutex
+	fn        reflect.Value
+	ArgType   reflect.Type
+	ReplyType reflect.Type
+	numCalls  uint
+}
+
 type service struct {
-	name   string
-	rcvr   reflect.Value          // receiver of methods for the service
-	typ    reflect.Type           // type of the receiver
-	method map[string]*methodType // 注册方法
+	name     string
+	rcvr     reflect.Value          // receiver of methods for the service
+	typ      reflect.Type           // type of the receiver
+	method   map[string]*methodType // 注册方法
+	function map[string]*functionType
 }
 
 func isExportedOrBuiltinType(t reflect.Type) bool {
@@ -41,6 +52,7 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 }
 
 func (s *Server) Register(rcvr interface{}, metadata string) error {
+	s.Plugins.DoRegister("", rcvr, metadata)
 	return s.register(rcvr, "", false)
 }
 
@@ -50,6 +62,19 @@ func (s *Server) RegisterWithName(name string, rcvr interface{}, metadata string
 	}
 	s.Plugins.DoRegister(name, rcvr, metadata)
 	return s.register(rcvr, name, true)
+}
+
+func (s *Server) RegisterFunction(servicePath string, fn interface{}, metadata string) error {
+	s.Plugins.DoRegisterFunction("", fn, metadata)
+	return s.registerFunction(servicePath, "", fn, false)
+}
+
+func (s *Server) RegisterFunctionWithName(servicePath string, name string, fn interface{}, metadata string) error {
+	if s.Plugins == nil {
+		s.Plugins = &pluginContainer{}
+	}
+	s.Plugins.DoRegisterFunction(name, fn, metadata)
+	return s.registerFunction(servicePath, name, fn, true)
 }
 
 func (s *Server) register(rcvr interface{}, name string, useName bool) error {
@@ -101,6 +126,81 @@ func (s *Server) register(rcvr interface{}, name string, useName bool) error {
 	return nil
 }
 
+func (s *Server) registerFunction(servicePath string, name string, fn interface{}, useName bool) error {
+	s.serviceMapMu.Lock()
+	defer s.serviceMapMu.Unlock()
+	if s.serviceMap == nil {
+		s.serviceMap = make(map[string]*service)
+	}
+
+	ss := s.serviceMap[servicePath]
+	if ss == nil {
+		ss = new(service)
+		ss.name = servicePath
+		ss.function = make(map[string]*functionType)
+	}
+
+	f, ok := fn.(reflect.Value)
+	if !ok {
+		f = reflect.ValueOf(fn)
+	}
+	if f.Kind() != reflect.Func {
+		return errors.New("mrpc.registerFunction: not a function")
+	}
+
+	fname := runtime.FuncForPC(reflect.Indirect(f).Pointer()).Name()
+	if fname == "" {
+		i := strings.LastIndex(fname, ".")
+		if i >= 0 {
+			fname = fname[i+1:]
+		}
+	}
+
+	if useName {
+		fname = name
+	}
+	if fname == "" {
+		error := "mrpc.registerFunction: no function name for type " + f.String()
+		log.Error(error)
+		return errors.New(error)
+	}
+
+	t := f.Type()
+	if t.NumIn() != 3 {
+		return fmt.Errorf("mrpc.registerFunction: has wrong number of ins: %s", f.Type().String())
+	}
+	if t.NumOut() != 1 {
+		return fmt.Errorf("mrpc.registerFunction: has wrong number of outs: %s", f.Type().String())
+	}
+
+	ctxType := t.In(0)
+	if !ctxType.Implements(typeOfContext) {
+		return fmt.Errorf("mrpc.registerFunction: first argument not of type context.Context")
+	}
+
+	argType := t.In(1)
+	if !isExportedOrBuiltinType(argType) {
+		return fmt.Errorf("mrpc.registerFunction: argument type not exported: %s", argType)
+	}
+
+	replyType := t.In(2)
+	if replyType.Kind() != reflect.Ptr {
+		return fmt.Errorf("mrpc.registerFunction: reply type not a pointer: %s", replyType)
+	}
+	if !isExportedOrBuiltinType(replyType) {
+		return fmt.Errorf("mrpc.registerFunction: reply type not exported: %s", replyType)
+	}
+
+	if returnType := t.Out(0); returnType != typeOfError {
+		return fmt.Errorf("mrpc.registerFunction: returns %s not error", returnType.String())
+	}
+
+	ss.function[fname] = &functionType{fn: f, ArgType: argType, ReplyType: replyType}
+
+	s.serviceMap[""] = ss
+	return nil
+}
+
 func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
 	methods := make(map[string]*methodType)
 
@@ -124,7 +224,7 @@ func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
 		ctxType := mtype.In(1)
 		if !ctxType.Implements(typeOfContext) {
 			if reportErr {
-				log.Info("method", mname, "has wrong number of ins:", mtype.NumIn())
+				log.Info("method", mname, " must use context.Context as the first parameter")
 			}
 			continue
 		}
@@ -132,7 +232,7 @@ func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
 		argType := mtype.In(2)
 		if !isExportedOrBuiltinType(argType) {
 			if reportErr {
-				log.Info(mname, "argument type not exported:", argType)
+				log.Info(mname, "parameter type not exported:", argType)
 			}
 			continue
 		}
@@ -187,6 +287,22 @@ func (s *service) call(ctx context.Context, mtype *methodType, argv, replyv refl
 	f := mtype.method.Func
 
 	returnValues := f.Call([]reflect.Value{s.rcvr, reflect.ValueOf(ctx), argv, replyv})
+
+	if errInter := returnValues[0].Interface(); errInter != nil {
+		return errInter.(error)
+	}
+
+	return nil
+}
+
+func (s *service) callForFunction(ctx context.Context, ft *functionType, argv, replyv reflect.Value) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("internal error: %v", r)
+		}
+	}()
+
+	returnValues := ft.fn.Call([]reflect.Value{reflect.ValueOf(ctx), argv, replyv})
 
 	if errInter := returnValues[0].Interface(); errInter != nil {
 		return errInter.(error)
