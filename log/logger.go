@@ -9,7 +9,7 @@ const (
 	calldepth = 3
 )
 
-var l Logger = & defaultLogger{log.New(os.Stderr, "", log.LstdFlags|log.Lshortfile)}
+var l Logger = &defaultLogger{log.New(os.Stderr, "", log.LstdFlags|log.Lshortfile)}
 
 type Logger interface {
 	Debug(v ...interface{})
@@ -33,6 +33,10 @@ type Logger interface {
 
 func SetLogger(logger Logger) {
 	l = logger
+}
+
+func SetDummyLogger() {
+	l = &dummyLogger{}
 }
 
 func Debug(v ...interface{}) {
