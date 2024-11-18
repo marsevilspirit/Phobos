@@ -51,7 +51,7 @@ type Server struct {
 	activeConn map[net.Conn]struct{}
 	done       chan struct{}
 
-	inShutdown int32
+	// inShutdown int32
 	onShutdown []func()
 
 	tlsConfig *tls.Config

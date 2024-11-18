@@ -47,6 +47,7 @@ type ServiceDiscovery interface {
 	RemoveWatcher(ch chan []*KVPair)
 	// Clone 方法，用于克隆 ServiceDiscovery
 	Clone(ServicePath string) ServiceDiscovery
+	Close()
 }
 
 // xClient 结构体实现 XClient 接口
@@ -553,7 +554,9 @@ func (c *xClient) Close() error {
 	}()
 
 	c.discovery.RemoveWatcher(c.ch)
-	close(c.ch)
+	if c.ch != nil {
+		close(c.ch)
+	}
 
 	if len(errs) > 0 {
 		return ex.NewMultiError(errs)

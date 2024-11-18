@@ -19,10 +19,6 @@ const (
 )
 
 var (
-	lineSeparator = []byte("\r\n")
-)
-
-var (
 	ErrMetaKVMissing = errors.New("wrong metadata lines. some keys or values are missing")
 	ErrMessageToLong = errors.New("message is too long")
 )
