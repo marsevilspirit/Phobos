@@ -75,6 +75,8 @@ type xClient struct {
 	Plugins PluginContainer
 
 	ch chan []*KVPair
+
+	serverMessageChan chan<- *protocol.Message
 }
 
 // NewXClient 工厂函数，用于创建 xClient 实例
@@ -90,6 +92,38 @@ func NewXClient(servicePath string, failMode FailMode, selectMode SelectMode, di
 	}
 
 	// 更新服务列表
+	servers := make(map[string]string)
+	pairs := discovery.GetServices()
+	for _, p := range pairs {
+		servers[p.Key] = p.Value
+	}
+	client.servers = servers
+	if selectMode != Closest && selectMode != SelectByUser {
+		client.selector = newSelector(selectMode, servers)
+	}
+
+	client.Plugins = &pluginContainer{}
+
+	ch := client.discovery.WatchService()
+	if ch != nil {
+		client.ch = ch
+		go client.watch(ch)
+	}
+
+	return client
+}
+
+func NewBidirectionalXClient(servicePath string, failMode FailMode, selectMode SelectMode, discovery ServiceDiscovery, option Option, serverMessageChan chan<- *protocol.Message) XClient {
+	client := &xClient{
+		failMode:          failMode,
+		selectMode:        selectMode,
+		discovery:         discovery,
+		servicePath:       servicePath,
+		cachedClient:      make(map[string]RPCClient),
+		option:            option,
+		serverMessageChan: serverMessageChan,
+	}
+
 	servers := make(map[string]string)
 	pairs := discovery.GetServices()
 	for _, p := range pairs {
@@ -190,6 +224,9 @@ func (c *xClient) getCachedClient(k string) (RPCClient, error) {
 			c.mu.Unlock()
 			return nil, err
 		}
+
+		client.RegisterServerMessageChan(c.serverMessageChan)
+
 		c.cachedClient[k] = client
 	}
 	c.mu.Unlock()
@@ -205,6 +242,7 @@ func (c *xClient) removeClient(k string, client RPCClient) {
 	c.mu.Unlock()
 
 	if client != nil {
+		client.UnregisterServerMessageChan()
 		client.Close()
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/marsevilspirit/m_RPC/log"
@@ -36,7 +37,8 @@ func (k *contextKey) String() string {
 }
 
 var (
-	RemoteConnContextKey = &contextKey{"remote-conn"}
+	RemoteConnContextKey       = &contextKey{"remote-conn"}
+	StartSendRequestContextKey = &contextKey{"start-send-request"}
 )
 
 type Server struct {
@@ -50,6 +52,7 @@ type Server struct {
 	mu         sync.Mutex
 	activeConn map[net.Conn]struct{}
 	done       chan struct{}
+	seq        uint64
 
 	// inShutdown int32
 	onShutdown []func()
@@ -85,6 +88,29 @@ func (s *Server) Address() net.Addr {
 	}
 
 	return s.ln.Addr()
+}
+
+func (s *Server) SendMessage(conn net.Conn, servicePath, serviceMethod string, metadata map[string]string, data []byte) error {
+	ctx := context.WithValue(context.Background(), StartSendRequestContextKey, time.Now().UnixNano())
+	s.Plugins.DoPreWriteRequest(ctx)
+
+	req := protocol.GetPoolMsg()
+	req.SetMessageType(protocol.Request)
+
+	seq := atomic.AddUint64(&s.seq, 1)
+	req.SetSeq(seq)
+	req.SetOneway(true)
+	req.SetSerializeType(protocol.SerializeNone)
+	req.ServicePath = servicePath
+	req.ServiceMethod = serviceMethod
+	req.Metadata = metadata
+	req.Payload = data
+
+	reqData := req.Encode()
+	_, err := conn.Write(reqData)
+	s.Plugins.DoPostWriteRequest(ctx, req, err)
+	protocol.FreeMsg(req)
+	return err
 }
 
 func (s *Server) getDone() <-chan struct{} {

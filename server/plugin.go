@@ -23,6 +23,9 @@ type PluginContainer interface {
 
 	DoPreWriteResponse(context.Context, *protocol.Message) error
 	DoPostWriteResponse(context.Context, *protocol.Message, *protocol.Message, error) error
+
+	DoPreWriteRequest(ctx context.Context) error
+	DoPostWriteRequest(ctx context.Context, r *protocol.Message, e error) error
 }
 
 type Plugin interface{}
@@ -54,6 +57,14 @@ type (
 
 	PostWriteResponsePlugin interface {
 		PostWriteResponse(context.Context, *protocol.Message, *protocol.Message, error) error
+	}
+
+	PreWriteRequestPlugin interface {
+		PreWriteRequest(ctx context.Context) error
+	}
+
+	PostWriteRequestPlugin interface {
+		PostWriteRequest(ctx context.Context, r *protocol.Message, e error) error
 	}
 )
 
@@ -178,6 +189,32 @@ func (p *pluginContainer) DoPostWriteResponse(ctx context.Context, req *protocol
 	for _, rp := range p.plugins {
 		if plugin, ok := rp.(PostWriteResponsePlugin); ok {
 			err := plugin.PostWriteResponse(ctx, req, resp, e)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (p *pluginContainer) DoPreWriteRequest(ctx context.Context) error {
+	for _, rp := range p.plugins {
+		if plugin, ok := rp.(PreWriteRequestPlugin); ok {
+			err := plugin.PreWriteRequest(ctx)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (p *pluginContainer) DoPostWriteRequest(ctx context.Context, req *protocol.Message, e error) error {
+	for _, rp := range p.plugins {
+		if plugin, ok := rp.(PostWriteRequestPlugin); ok {
+			err := plugin.PostWriteRequest(ctx, req, e)
 			if err != nil {
 				return err
 			}

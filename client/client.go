@@ -105,6 +105,10 @@ type RPCClient interface {
 	Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error
 	SendRaw(ctx context.Context, r *protocol.Message) (map[string]string, []byte, error)
 	Close() error
+
+	RegisterServerMessageChan(ch chan<- *protocol.Message)
+	UnregisterServerMessageChan()
+
 	IsClosing() bool
 	IsShutdown() bool
 }
@@ -123,6 +127,8 @@ type Client struct {
 	shutdown bool // shutdown 是error发生时调用的
 
 	Plugins PluginContainer
+
+	ServerMessageChan chan<- *protocol.Message
 }
 
 func NewClient(options Option) *Client {
@@ -364,6 +370,16 @@ func urlencode(data map[string]string) string {
 	return s[:len(s)-1]
 }
 
+// RegisterServerMessageChan registers the channel that receives server requests.
+func (client *Client) RegisterServerMessageChan(ch chan<- *protocol.Message) {
+	client.ServerMessageChan = ch
+}
+
+// UnregisterServerMessageChan removes ServerMessageChan.
+func (client *Client) UnregisterServerMessageChan() {
+	client.ServerMessageChan = nil
+}
+
 // IsClosing client is closing or not.
 func (client *Client) IsClosing() bool {
 	return client.closing
@@ -505,14 +521,23 @@ func (client *Client) receive() {
 		}
 
 		seq := res.Seq()
-		client.mu.Lock()
-		call := client.pending[seq]
-		delete(client.pending, seq)
-		client.mu.Unlock()
+		var call *Call
+		isServerMessage := (res.MessageType() == protocol.Request && !res.IsHeartbeat() && res.IsOneway())
+		if !isServerMessage {
+			client.mu.Lock()
+			call = client.pending[seq]
+			delete(client.pending, seq)
+			client.mu.Unlock()
+		}
 
 		switch {
 		case call == nil:
-
+			if isServerMessage {
+				if client.ServerMessageChan != nil {
+					go client.handleServerRequest(res)
+				}
+				continue
+			}
 		case res.MessageStatusType() == protocol.Error:
 			call.Error = ServiceError(res.Metadata[protocol.ServiceError])
 			call.ResMetadata = res.Metadata
@@ -573,6 +598,22 @@ func (client *Client) receive() {
 	if err != nil && err != io.EOF && !closing {
 		log.Error("mrpc: client protocol error:", err)
 	}
+}
+
+func (client *Client) handleServerRequest(msg *protocol.Message) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("ServerMessageChan may be closed so client remove it. Please add it again if you want to handle server requests. error is %v", r)
+			client.ServerMessageChan = nil
+		}
+	}()
+	t := time.NewTimer(5 * time.Second)
+	select {
+	case client.ServerMessageChan <- msg:
+	case <-t.C:
+		log.Warnf("ServerMessageChan may be full so the server request %d has been dropped", msg.Seq())
+	}
+	t.Stop()
 }
 
 func (client *Client) heartbeat() {

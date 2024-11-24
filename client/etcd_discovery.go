@@ -86,6 +86,20 @@ func NewEtcdDiscoveryStore(basePath string, kv store.Store) ServiceDiscovery {
 	return d
 }
 
+func NewEtcdDiscoveryTemplate(basePath string, etcdAddr []string, options *store.Config) ServiceDiscovery {
+	if len(basePath) > 1 && strings.HasSuffix(basePath, "/") {
+		basePath = basePath[:len(basePath)-1]
+	}
+
+	kv, err := libkv.NewStore(estore.ETCDV3, etcdAddr, options)
+	if err != nil {
+		log.Infof("cannot create store: %v", err)
+		panic(err)
+	}
+
+	return &EtcdDiscovery{basePath: basePath, kv: kv}
+}
+
 func (d EtcdDiscovery) Clone(servicePath string) ServiceDiscovery {
 	return NewEtcdDiscoveryStore(d.basePath+"/"+servicePath, d.kv)
 }
