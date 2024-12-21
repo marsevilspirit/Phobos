@@ -100,11 +100,11 @@ func NewEtcdDiscoveryTemplate(basePath string, etcdAddr []string, options *store
 	return &EtcdDiscovery{basePath: basePath, kv: kv}
 }
 
-func (d EtcdDiscovery) Clone(servicePath string) ServiceDiscovery {
+func (d *EtcdDiscovery) Clone(servicePath string) ServiceDiscovery {
 	return NewEtcdDiscoveryStore(d.basePath+"/"+servicePath, d.kv)
 }
 
-func (d EtcdDiscovery) GetServices() []*KVPair {
+func (d *EtcdDiscovery) GetServices() []*KVPair {
 	return d.pairs
 }
 
