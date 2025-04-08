@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/marsevilspirit/m_RPC/protocol"
+	"github.com/marsevilspirit/phobos/protocol"
 )
 
 const (

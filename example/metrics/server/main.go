@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/marsevilspirit/m_RPC/example"
-	"github.com/marsevilspirit/m_RPC/server"
-	"github.com/marsevilspirit/m_RPC/serverplugin"
+	"github.com/marsevilspirit/phobos/example"
+	"github.com/marsevilspirit/phobos/server"
+	"github.com/marsevilspirit/phobos/serverplugin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

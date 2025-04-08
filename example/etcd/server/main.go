@@ -6,9 +6,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/marsevilspirit/m_RPC/example"
-	"github.com/marsevilspirit/m_RPC/server"
-	"github.com/marsevilspirit/m_RPC/serverplugin"
+	"github.com/marsevilspirit/phobos/example"
+	"github.com/marsevilspirit/phobos/server"
+	"github.com/marsevilspirit/phobos/serverplugin"
 	metrics "github.com/rcrowley/go-metrics"
 )
 

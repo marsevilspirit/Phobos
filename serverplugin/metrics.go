@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/marsevilspirit/m_RPC/protocol"
+	"github.com/marsevilspirit/phobos/protocol"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

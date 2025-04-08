@@ -1,8 +1,8 @@
 package share
 
 import (
-	"github.com/marsevilspirit/m_RPC/codec"
-	"github.com/marsevilspirit/m_RPC/protocol"
+	"github.com/marsevilspirit/phobos/codec"
+	"github.com/marsevilspirit/phobos/protocol"
 )
 
 const (

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/marsevilspirit/m_RPC/server"
+	"github.com/marsevilspirit/phobos/server"
 	metrics "github.com/rcrowley/go-metrics"
 )
 

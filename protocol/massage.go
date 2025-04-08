@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/marsevilspirit/m_RPC/util"
+	"github.com/marsevilspirit/phobos/util"
 )
 
 // MaxMessageLength is the max length of a message.

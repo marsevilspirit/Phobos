@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/marsevilspirit/m_RPC/log"
+	"github.com/marsevilspirit/phobos/log"
 )
 
 var typeOfError = reflect.TypeOf((*error)(nil)).Elem()

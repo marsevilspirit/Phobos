@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	ex "github.com/marsevilspirit/m_RPC/errors"
-	"github.com/marsevilspirit/m_RPC/protocol"
-	"github.com/marsevilspirit/m_RPC/share"
+	ex "github.com/marsevilspirit/phobos/errors"
+	"github.com/marsevilspirit/phobos/protocol"
+	"github.com/marsevilspirit/phobos/share"
 )
 
 var (

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/marsevilspirit/m_RPC/protocol"
-	"github.com/marsevilspirit/m_RPC/share"
+	"github.com/marsevilspirit/phobos/protocol"
+	"github.com/marsevilspirit/phobos/share"
 )
 
 type Args struct {

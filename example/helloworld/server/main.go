@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/marsevilspirit/m_RPC/example"
-	"github.com/marsevilspirit/m_RPC/server"
+	"github.com/marsevilspirit/phobos/example"
+	"github.com/marsevilspirit/phobos/server"
 )
 
 var (

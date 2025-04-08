@@ -5,8 +5,8 @@ import (
 	"flag"
 	"log"
 
-	"github.com/marsevilspirit/m_RPC/client"
-	"github.com/marsevilspirit/m_RPC/example"
+	"github.com/marsevilspirit/phobos/client"
+	"github.com/marsevilspirit/phobos/example"
 )
 
 var (

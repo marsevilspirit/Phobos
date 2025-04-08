@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/marsevilspirit/m_RPC/server"
+	"github.com/marsevilspirit/phobos/server"
 )
 
 func TestXClient_IT(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/marsevilspirit/m_RPC/client"
+	"github.com/marsevilspirit/phobos/client"
 )
 
 type Gateway struct {

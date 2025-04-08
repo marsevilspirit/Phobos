@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/marsevilspirit/m_RPC/log"
-	"github.com/marsevilspirit/m_RPC/share"
+	"github.com/marsevilspirit/phobos/log"
+	"github.com/marsevilspirit/phobos/share"
 )
 
 func (c *Client) Connect(network, address string) error {

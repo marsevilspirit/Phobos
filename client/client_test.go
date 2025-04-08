@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/marsevilspirit/m_RPC/protocol"
-	"github.com/marsevilspirit/m_RPC/server"
+	"github.com/marsevilspirit/phobos/protocol"
+	"github.com/marsevilspirit/phobos/server"
 )
 
 type Args struct {

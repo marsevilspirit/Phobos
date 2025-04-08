@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/marsevilspirit/m_RPC/log"
+	"github.com/marsevilspirit/phobos/log"
 )
 
 // 多个server的服务发现

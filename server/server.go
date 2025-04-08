@@ -16,9 +16,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/marsevilspirit/m_RPC/log"
-	"github.com/marsevilspirit/m_RPC/protocol"
-	"github.com/marsevilspirit/m_RPC/share"
+	"github.com/marsevilspirit/phobos/log"
+	"github.com/marsevilspirit/phobos/protocol"
+	"github.com/marsevilspirit/phobos/share"
 )
 
 var ErrServerClosed = errors.New("http: Server closed")

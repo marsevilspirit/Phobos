@@ -4,8 +4,8 @@ import (
 	"context"
 	"net"
 
-	"github.com/marsevilspirit/m_RPC/errors"
-	"github.com/marsevilspirit/m_RPC/protocol"
+	"github.com/marsevilspirit/phobos/errors"
+	"github.com/marsevilspirit/phobos/protocol"
 )
 
 type PluginContainer interface {
