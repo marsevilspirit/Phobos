@@ -1,6 +1,6 @@
 ### phobos
 
-phobos 是一个服务治理的RPC框架.
+phobos 是一个服务治理的RPC框架.  
 通过对net/rpc的源码学习，进行扩展开发.
 
 ##### 特点
