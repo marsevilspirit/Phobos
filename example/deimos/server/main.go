@@ -1,4 +1,4 @@
-// go run -tags etcd server.go
+// go run -tags deimos server.go
 package main
 
 import (
@@ -9,13 +9,11 @@ import (
 	"github.com/marsevilspirit/phobos/example"
 	"github.com/marsevilspirit/phobos/server"
 	"github.com/marsevilspirit/phobos/serverplugin"
-	metrics "github.com/rcrowley/go-metrics"
 )
 
 var (
-	addr     = flag.String("addr", "localhost:30000", "server address")
-	etcdAddr = flag.String("etcdAddr", "localhost:2379", "etcd address")
-	basePath = flag.String("base", "/mrpc_example", "prefix path")
+	addr       = flag.String("addr", "localhost:30000", "server address")
+	deimosAddr = flag.String("deimosAddr", "http://127.0.0.1:4001", "etcd address")
 )
 
 func main() {
@@ -29,11 +27,9 @@ func main() {
 }
 
 func addRegistryPlugin(s *server.Server) {
-	r := &serverplugin.EtcdRegisterPlugin{
+	r := &serverplugin.DeimosRegisterPlugin{
 		ServiceAddress: "tcp@" + *addr,
-		EtcdServers:    []string{*etcdAddr},
-		BasePath:       *basePath,
-		Metrics:        metrics.NewRegistry(),
+		DeimosServers:  []string{*deimosAddr},
 		UpdateInterval: time.Minute,
 	}
 

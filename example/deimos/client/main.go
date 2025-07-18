@@ -10,14 +10,14 @@ import (
 )
 
 var (
-	etcdAddr = flag.String("etcdAddr", "localhost:2379", "etcdaddress")
-	basePath = flag.String("base", "/mrpc_example/HelloWorld", "prefix path")
+	deimosAddr = flag.String("deimosAddr", "http://127.0.0.1:4001", "deimosaddress")
+	basePath   = flag.String("base", "/phobos/HelloWorld", "prefix path")
 )
 
 func main() {
 	flag.Parse()
 
-	d := client.NewEtcdDiscovery(*basePath, []string{*etcdAddr})
+	d := client.NewDeimosDiscovery(*basePath, []string{*deimosAddr})
 
 	xclient := client.NewXClient("HelloWorld", client.Failtry, client.RandomSelect, d, client.DefaultOption)
 	defer xclient.Close()
