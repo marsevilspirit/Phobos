@@ -39,11 +39,8 @@ func (p *DeimosRegisterPlugin) Start() error {
 	p.services = make([]string, 0)
 	p.metaMap = make(map[string]string)
 
-	_, err := p.client.Set(context.Background(), phobosDir, "phobos_path", deimos.WithDir())
-	if err != nil {
-		log.Errorf("cannot create deimos path %s: %v", phobosDir, err)
-		return err
-	}
+	// TODO: handle already register
+	p.client.Set(context.Background(), phobosDir, "phobos_path", deimos.WithDir())
 
 	if p.UpdateInterval > 0 {
 		ticker := time.NewTicker(p.UpdateInterval)
@@ -94,13 +91,10 @@ func (p *DeimosRegisterPlugin) Register(name string, rcvr interface{}, metadata 
 
 	// Ensure the service-specific directory (/) exists.
 	servicePath := fmt.Sprintf("%s/%s", phobosDir, name)
-	_, err = p.client.Set(context.Background(), servicePath, "", deimos.WithDir())
-	if err != nil {
-		// This error can be ignored if the directory already exists.
-		log.Errorf("could not create service path '%s', may already exist. error: %v", servicePath, err)
-	}
+	// TODO: handle already register
+	p.client.Set(context.Background(), servicePath, "", deimos.WithDir())
 
-	// 3. Create the ephemeral service node with a TTL.
+	// Create the ephemeral service node with a TTL.
 	nodePath := fmt.Sprintf("%s/%s/%s", phobosDir, name, p.ServiceAddress)
 	_, err = p.client.Set(context.Background(), nodePath, metadata, deimos.WithTTL(p.UpdateInterval*2))
 	if err != nil {
@@ -108,7 +102,7 @@ func (p *DeimosRegisterPlugin) Register(name string, rcvr interface{}, metadata 
 		return err
 	}
 
-	// 4. Store the service info in the plugin's state.
+	// Store the service info in the plugin's state.
 	p.servicesLock.Lock()
 	p.services = append(p.services, name)
 	p.metaMap[name] = metadata
