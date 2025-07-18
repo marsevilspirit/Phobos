@@ -10,14 +10,14 @@ import (
 )
 
 var (
-	deimosAddr = flag.String("deimosAddr", "http://127.0.0.1:4001", "deimosaddress")
-	basePath   = flag.String("base", "/phobos/HelloWorld", "prefix path")
+	deimosAddr  = flag.String("deimosAddr", "http://127.0.0.1:4001", "deimosaddress")
+	serviceName = flag.String("servicePath", "HelloWorld", "prefix path")
 )
 
 func main() {
 	flag.Parse()
 
-	d := client.NewDeimosDiscovery(*basePath, []string{*deimosAddr})
+	d := client.NewDeimosDiscovery(*serviceName, []string{*deimosAddr})
 
 	xclient := client.NewXClient("HelloWorld", client.Failtry, client.RandomSelect, d, client.DefaultOption)
 	defer xclient.Close()

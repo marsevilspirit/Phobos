@@ -11,44 +11,46 @@ import (
 	"github.com/marsevilspirit/phobos/log"
 )
 
+const basePath = "/phobos"
+
 // DeimosDiscovery implements service discovery using the deimos client.
 type DeimosDiscovery struct {
-	basePath string
-	client   *deimos.Client
-	pairs    []*KVPair
-	chans    []chan []*KVPair
-	mu       sync.Mutex
-	stopCh   chan struct{}
+	path   string
+	client *deimos.Client
+	pairs  []*KVPair
+	chans  []chan []*KVPair
+	mu     sync.Mutex
+	stopCh chan struct{}
 }
 
 // NewDeimosDiscovery creates a new DeimosDiscovery with a new client.
-func NewDeimosDiscovery(basePath string, deimosAddr []string) ServiceDiscovery {
+func NewDeimosDiscovery(serviceName string, deimosAddr []string) ServiceDiscovery {
 	client := deimos.NewClient(deimosAddr)
-	return NewDeimosDiscoveryStore(basePath, client)
+	return NewDeimosDiscoveryStore(basePath+"/"+serviceName, client)
 }
 
 // NewDeimosDiscoveryStore creates a new DeimosDiscovery with a provided client.
-func NewDeimosDiscoveryStore(basePath string, client *deimos.Client) ServiceDiscovery {
-	if len(basePath) > 1 && strings.HasSuffix(basePath, "/") {
-		basePath = basePath[:len(basePath)-1]
+func NewDeimosDiscoveryStore(path string, client *deimos.Client) ServiceDiscovery {
+	if len(path) > 1 && strings.HasSuffix(path, "/") {
+		path = path[:len(path)-1]
 	}
 
 	d := &DeimosDiscovery{
-		basePath: basePath,
-		client:   client,
-		stopCh:   make(chan struct{}),
+		path:   path,
+		client: client,
+		stopCh: make(chan struct{}),
 	}
 
 	// Initial fetch of all services under the base path.
-	resp, err := client.Get(context.Background(), basePath, deimos.WithRecursive())
+	resp, err := client.Get(context.Background(), path, deimos.WithRecursive())
 	if err != nil {
-		log.Infof("cannot get services from deimos registry: %s, error: %v", basePath, err)
+		log.Infof("cannot get services from deimos registry: %s, error: %v", path, err)
 		panic(err)
 	}
 
 	// The Get response for a directory contains nodes under it.
 	if resp.Node != nil && resp.Node.Dir {
-		prefix := d.basePath + "/"
+		prefix := d.path + "/"
 		for _, node := range resp.Node.Nodes {
 			if node.Dir { // We are interested in service nodes, not sub-directories.
 				continue
@@ -66,7 +68,7 @@ func NewDeimosDiscoveryStore(basePath string, client *deimos.Client) ServiceDisc
 
 // Clone creates a new discovery for a sub-path.
 func (d *DeimosDiscovery) Clone(servicePath string) ServiceDiscovery {
-	return NewDeimosDiscoveryStore(d.basePath+"/"+servicePath, d.client)
+	return NewDeimosDiscoveryStore(d.path+"/"+servicePath, d.client)
 }
 
 // GetServices returns the current cached list of services.
@@ -117,7 +119,7 @@ func (d *DeimosDiscovery) watch() {
 		}
 
 		// Start watching recursively from the last known index.
-		watchChan := d.client.Watch(ctx, d.basePath, deimos.WithRecursive(), deimos.WithWaitIndex(waitIndex))
+		watchChan := d.client.Watch(ctx, d.path, deimos.WithRecursive(), deimos.WithWaitIndex(waitIndex))
 
 		// Process events from the watch channel.
 		for resp := range watchChan {
@@ -125,7 +127,7 @@ func (d *DeimosDiscovery) watch() {
 
 			// Upon any change, re-fetch the entire directory to get the fresh state.
 			// This is simpler and more robust than trying to apply individual deltas.
-			getResp, err := d.client.Get(context.Background(), d.basePath, deimos.WithRecursive())
+			getResp, err := d.client.Get(context.Background(), d.path, deimos.WithRecursive())
 			if err != nil {
 				log.Warnf("failed to get services after watch event: %v", err)
 				time.Sleep(2 * time.Second) // Avoid spamming in case of persistent errors.
@@ -134,7 +136,7 @@ func (d *DeimosDiscovery) watch() {
 
 			var currentPairs []*KVPair
 			if getResp.Node != nil && getResp.Node.Dir {
-				prefix := d.basePath + "/"
+				prefix := d.path + "/"
 				for _, node := range getResp.Node.Nodes {
 					if node.Dir {
 						continue
