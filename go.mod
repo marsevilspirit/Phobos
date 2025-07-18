@@ -1,6 +1,6 @@
 module github.com/marsevilspirit/phobos
 
-go 1.23.2
+go 1.24.5
 
 require (
 	github.com/fatih/color v1.18.0
