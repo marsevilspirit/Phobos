@@ -11,7 +11,7 @@ phobos 是一个服务治理的RPC框架.
 4.支持http与rpc协议之间转换  
 5.支持超时处理  
 6.使用较为灵活的元数据(metadata)传递data  
-7.支持etcd做服务注册和服务发现  
+7.使用[Deimos](https://github.com/marsevilspirit/Deimos)做服务注册和服务发现  
 8.支持多种负载均衡  
 9.支持熔断  
 10.支持发送心跳包  
