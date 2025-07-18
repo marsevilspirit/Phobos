@@ -8,7 +8,6 @@ require (
 	github.com/kavu/go_reuseport v1.5.0
 	github.com/marsevilspirit/deimos-client v0.0.0-20250718044931-4ad1b1312977
 	github.com/prometheus/client_golang v1.11.0
-	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/stretchr/testify v1.9.0
 	github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
 	github.com/valyala/fastrand v0.0.0-20170531153657-19dd0f0bf014
