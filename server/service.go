@@ -94,13 +94,13 @@ func (s *Server) register(rcvr any, name string, useName bool) error {
 	}
 
 	if sname == "" {
-		errorStr := "mrpc.register: no service name for type " + service.typ.String()
+		errorStr := "phobos.register: no service name for type " + service.typ.String()
 		log.Error(errorStr)
 		return errors.New(errorStr)
 	}
 
 	if !useName && !ast.IsExported(sname) {
-		errorStr := "mrpc.register: type " + sname + " is not exported"
+		errorStr := "phobos.register: type " + sname + " is not exported"
 		log.Error(errorStr)
 		return errors.New(errorStr)
 	}
@@ -114,9 +114,9 @@ func (s *Server) register(rcvr any, name string, useName bool) error {
 
 		method := suitableMethods(reflect.PointerTo(service.typ), false)
 		if len(method) != 0 {
-			errorStr = "mrpc.register: type " + sname + " has no exportedmethods of suitable type (hint: pass a pointer to value of that type)"
+			errorStr = "phobos.register: type " + sname + " has no exportedmethods of suitable type (hint: pass a pointer to value of that type)"
 		} else {
-			errorStr = "mrpc.register: type " + sname + " has no exportedmethods of suitable type"
+			errorStr = "phobos.register: type " + sname + " has no exportedmethods of suitable type"
 		}
 		log.Error(errorStr)
 		return errors.New(errorStr)
@@ -144,7 +144,7 @@ func (s *Server) registerFunction(servicePath string, name string, fn any, useNa
 		f = reflect.ValueOf(fn)
 	}
 	if f.Kind() != reflect.Func {
-		return errors.New("mrpc.registerFunction: not a function")
+		return errors.New("phobos.registerFunction: not a function")
 	}
 
 	fname := runtime.FuncForPC(reflect.Indirect(f).Pointer()).Name()
@@ -159,39 +159,39 @@ func (s *Server) registerFunction(servicePath string, name string, fn any, useNa
 		fname = name
 	}
 	if fname == "" {
-		error := "mrpc.registerFunction: no function name for type " + f.String()
+		error := "phobos.registerFunction: no function name for type " + f.String()
 		log.Error(error)
 		return errors.New(error)
 	}
 
 	t := f.Type()
 	if t.NumIn() != 3 {
-		return fmt.Errorf("mrpc.registerFunction: has wrong number of ins: %s", f.Type().String())
+		return fmt.Errorf("phobos.registerFunction: has wrong number of ins: %s", f.Type().String())
 	}
 	if t.NumOut() != 1 {
-		return fmt.Errorf("mrpc.registerFunction: has wrong number of outs: %s", f.Type().String())
+		return fmt.Errorf("phobos.registerFunction: has wrong number of outs: %s", f.Type().String())
 	}
 
 	ctxType := t.In(0)
 	if !ctxType.Implements(typeOfContext) {
-		return fmt.Errorf("mrpc.registerFunction: first argument not of type context.Context")
+		return fmt.Errorf("phobos.registerFunction: first argument not of type context.Context")
 	}
 
 	argType := t.In(1)
 	if !isExportedOrBuiltinType(argType) {
-		return fmt.Errorf("mrpc.registerFunction: argument type not exported: %s", argType)
+		return fmt.Errorf("phobos.registerFunction: argument type not exported: %s", argType)
 	}
 
 	replyType := t.In(2)
 	if replyType.Kind() != reflect.Ptr {
-		return fmt.Errorf("mrpc.registerFunction: reply type not a pointer: %s", replyType)
+		return fmt.Errorf("phobos.registerFunction: reply type not a pointer: %s", replyType)
 	}
 	if !isExportedOrBuiltinType(replyType) {
-		return fmt.Errorf("mrpc.registerFunction: reply type not exported: %s", replyType)
+		return fmt.Errorf("phobos.registerFunction: reply type not exported: %s", replyType)
 	}
 
 	if returnType := t.Out(0); returnType != typeOfError {
-		return fmt.Errorf("mrpc.registerFunction: returns %s not error", returnType.String())
+		return fmt.Errorf("phobos.registerFunction: returns %s not error", returnType.String())
 	}
 
 	ss.function[fname] = &functionType{fn: f, ArgType: argType, ReplyType: replyType}

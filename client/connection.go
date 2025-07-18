@@ -76,7 +76,7 @@ func newDirectConn(c *Client, network, address string) (net.Conn, error) {
 	return conn, nil
 }
 
-var connected = "200 Connected to mrpc"
+var connected = "200 Connected to phobos"
 
 func newDirectHTTPConn(c *Client, network, address string, opts ...any) (net.Conn, error) {
 	var path string

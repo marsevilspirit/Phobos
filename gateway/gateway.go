@@ -59,11 +59,11 @@ func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, ps httpr
 	servicePath := r.Header.Get(GatewayServicePath)
 
 	wh := w.Header()
-	req, err := HttpRequest2MRPCRequest(r)
+	req, err := HttpRequest2PHOBOSRequest(r)
 	if err != nil {
 		rh := r.Header
 		for k, v := range rh {
-			if strings.HasPrefix(k, "MRPC-Gateway-") && len(v) > 0 {
+			if strings.HasPrefix(k, "PHOBOS-Gateway-") && len(v) > 0 {
 				wh.Set(k, v[0])
 			}
 		}

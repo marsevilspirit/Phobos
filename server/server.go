@@ -33,7 +33,7 @@ type contextKey struct {
 }
 
 func (k *contextKey) String() string {
-	return "mrpc context value " + k.name
+	return "phobos context value " + k.name
 }
 
 var (
@@ -175,7 +175,7 @@ func (s *Server) serveListener(ln net.Listener) error {
 					tempDelay = max
 				}
 
-				log.Errorf("mrpc: Accept error: %v; retrying in %v", e, tempDelay)
+				log.Errorf("phobos: Accept error: %v; retrying in %v", e, tempDelay)
 				time.Sleep(tempDelay)
 				continue
 			}
@@ -254,7 +254,7 @@ func (s *Server) serveConn(conn net.Conn) {
 			conn.SetWriteDeadline(time.Now().Add(d))
 		}
 		if err := tlsConn.Handshake(); err != nil {
-			log.Errorf("mrpc: TLS handshake error from %s: %v", conn.RemoteAddr(), err)
+			log.Errorf("phobos: TLS handshake error from %s: %v", conn.RemoteAddr(), err)
 		}
 	}
 
@@ -274,7 +274,7 @@ func (s *Server) serveConn(conn net.Conn) {
 			} else if strings.Contains(err.Error(), "use of closed network connection") {
 				log.Infof("rpcx: connection %s is closed", conn.RemoteAddr().String())
 			} else {
-				log.Warnf("mrpc: failed to read request: %v", err)
+				log.Warnf("phobos: failed to read request: %v", err)
 			}
 			return
 		}
@@ -312,7 +312,7 @@ func (s *Server) serveConn(conn net.Conn) {
 
 			res, err := s.handleRequest(newCtx, req)
 			if err != nil {
-				log.Warnf("mrpc: failed to handle request: %v", err)
+				log.Warnf("phobos: failed to handle request: %v", err)
 			}
 
 			s.Plugins.DoPreWriteResponse(newCtx, req)
@@ -373,7 +373,7 @@ func (s *Server) handleRequest(ctx context.Context, req *protocol.Message) (res 
 	service := s.serviceMap[serviceName]
 	s.serviceMapMu.RUnlock()
 	if service == nil {
-		err = errors.New("mrpc: can't find service " + serviceName)
+		err = errors.New("phobos: can't find service " + serviceName)
 		return handleError(res, err)
 	}
 	mtype := service.method[methodName]
@@ -381,7 +381,7 @@ func (s *Server) handleRequest(ctx context.Context, req *protocol.Message) (res 
 		if service.function[methodName] != nil {
 			return s.handleRequestForFunction(ctx, req)
 		}
-		err = errors.New("mrpc: can't find method " + methodName)
+		err = errors.New("phobos: can't find method " + methodName)
 		return handleError(res, err)
 	}
 
@@ -433,13 +433,13 @@ func (s *Server) handleRequestForFunction(ctx context.Context, req *protocol.Mes
 	s.serviceMapMu.RUnlock()
 
 	if service == nil {
-		err = errors.New("mrpc: can't find the default service")
+		err = errors.New("phobos: can't find the default service")
 		return handleError(res, err)
 	}
 
 	mtype := service.function[methodName]
 	if mtype == nil {
-		err = errors.New("mrpc: can't find method " + methodName)
+		err = errors.New("phobos: can't find method " + methodName)
 		return handleError(res, err)
 	}
 
@@ -486,7 +486,7 @@ func handleError(res *protocol.Message, err error) (*protocol.Message, error) {
 	return res, err
 }
 
-var connected = "200 Connected to mrpc"
+var connected = "200 Connected to phobos"
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "CONNECT" {

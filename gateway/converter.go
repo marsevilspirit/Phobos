@@ -10,20 +10,20 @@ import (
 )
 
 const (
-	GatewayVersion           = "MRPC-Gateway-Version"
-	GatewayMessageType       = "MRPC-Gateway-MessageType"
-	GatewayHeartbeat         = "MRPC-Gateway-Heartbeat"
-	GatewayOneway            = "MRPC-Gateway-Oneway"
-	GatewayMessageStatusType = "MRPC-Gateway-MessageStatusType"
-	GatewaySerializeType     = "MRPC-Gateway-SerializeType"
-	GatewayMessageID         = "MRPC-Gateway-MessageID"
-	GatewayServicePath       = "MRPC-Gateway-ServicePath"
-	GatewayServiceMethod     = "MRPC-Gateway-ServiceMethod"
-	GatewayMeta              = "MRPC-Gateway-Meta"
-	GatewayErrorMessage      = "MRPC-Gateway-ErrorMessage"
+	GatewayVersion           = "PHOBOS-Gateway-Version"
+	GatewayMessageType       = "PHOBOS-Gateway-MessageType"
+	GatewayHeartbeat         = "PHOBOS-Gateway-Heartbeat"
+	GatewayOneway            = "PHOBOS-Gateway-Oneway"
+	GatewayMessageStatusType = "PHOBOS-Gateway-MessageStatusType"
+	GatewaySerializeType     = "PHOBOS-Gateway-SerializeType"
+	GatewayMessageID         = "PHOBOS-Gateway-MessageID"
+	GatewayServicePath       = "PHOBOS-Gateway-ServicePath"
+	GatewayServiceMethod     = "PHOBOS-Gateway-ServiceMethod"
+	GatewayMeta              = "PHOBOS-Gateway-Meta"
+	GatewayErrorMessage      = "PHOBOS-Gateway-ErrorMessage"
 )
 
-func HttpRequest2MRPCRequest(r *http.Request) (*protocol.Message, error) {
+func HttpRequest2PHOBOSRequest(r *http.Request) (*protocol.Message, error) {
 	req := protocol.NewMessage()
 	req.SetMessageType(protocol.Request)
 

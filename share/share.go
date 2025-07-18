@@ -7,7 +7,7 @@ import (
 
 const (
 	// used by HTTP
-	DefaultRPCPath = "/_mrpc_"
+	DefaultRPCPath = "/_phobos_"
 
 	// used by auth
 	AuthKey = "__AUTH"

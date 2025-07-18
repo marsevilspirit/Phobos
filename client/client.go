@@ -21,17 +21,17 @@ import (
 )
 
 const (
-	GatewayVersion           = "MRPC-Gateway-Version"
-	GatewayMessageType       = "MRPC-Gateway-MessageType"
-	GatewayHeartbeat         = "MRPC-Gateway-Heartbeat"
-	GatewayOneway            = "MRPC-Gateway-Oneway"
-	GatewayMessageStatusType = "MRPC-Gateway-MessageStatusType"
-	GatewaySerializeType     = "MRPC-Gateway-SerializeType"
-	GatewayMessageID         = "MRPC-Gateway-MessageID"
-	GatewayServicePath       = "MRPC-Gateway-ServicePath"
-	GatewayServiceMethod     = "MRPC-Gateway-ServiceMethod"
-	GatewayMeta              = "MRPC-Gateway-Meta"
-	GatewayErrorMessage      = "MRPC-Gateway-ErrorMessage"
+	GatewayVersion           = "PHOBOS-Gateway-Version"
+	GatewayMessageType       = "PHOBOS-Gateway-MessageType"
+	GatewayHeartbeat         = "PHOBOS-Gateway-Heartbeat"
+	GatewayOneway            = "PHOBOS-Gateway-Oneway"
+	GatewayMessageStatusType = "PHOBOS-Gateway-MessageStatusType"
+	GatewaySerializeType     = "PHOBOS-Gateway-SerializeType"
+	GatewayMessageID         = "PHOBOS-Gateway-MessageID"
+	GatewayServicePath       = "PHOBOS-Gateway-ServicePath"
+	GatewayServiceMethod     = "PHOBOS-Gateway-ServiceMethod"
+	GatewayMeta              = "PHOBOS-Gateway-Meta"
+	GatewayErrorMessage      = "PHOBOS-Gateway-ErrorMessage"
 )
 
 // ServiceError is the error interface for service error
@@ -596,7 +596,7 @@ func (client *Client) receive() {
 
 	client.mu.Unlock()
 	if err != nil && err != io.EOF && !closing {
-		log.Error("mrpc: client protocol error:", err)
+		log.Error("phobos: client protocol error:", err)
 	}
 }
 
@@ -627,7 +627,7 @@ func (client *Client) heartbeat() {
 
 		err := client.Call(context.Background(), "", "", nil, nil)
 		if err != nil {
-			log.Warnf("mrpc: client heartbeat error: %v to %s", err, client.Conn.RemoteAddr().String())
+			log.Warnf("phobos: client heartbeat error: %v to %s", err, client.Conn.RemoteAddr().String())
 		}
 	}
 }

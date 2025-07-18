@@ -24,7 +24,7 @@ var (
 )
 
 const (
-	ServiceError = "__mrpc_error__"
+	ServiceError = "__phobos_error__"
 )
 
 type MessageType byte
