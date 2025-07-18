@@ -1,57 +1,63 @@
-# Phobos: A Feature-Rich RPC Framework for Service Governance
+# Phobos & Deimos: The Twin Moons of Mars
 
-Phobos is a powerful and extensible RPC framework designed for building robust and scalable microservices. It is inspired by the source code of `net/rpc` and extends it with a wide range of features for service governance.
+<div align="center">
+  <pre>
+  ██████╗ ██╗  ██╗ ██████╗ ██████╗  ██████╗ ███████╗
+  ██╔══██╗██║  ██║██╔═══██╗██╔══██╗██╔═══██╗██╔════╝
+  ██████╔╝███████║██║   ██║██████╔╝██║   ██║███████╗
+  ██╔═══╝ ██╔══██║██║   ██║██╔═══╝ ██║   ██║╚════██║
+  ██║     ██║  ██║╚██████╔╝██║     ╚██████╔╝███████║
+  ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝      ╚═════╝ ╚══════╝
+  </pre>
+</div>
+
+<p align="center">
+  <strong>Phobos, the swift messenger, is a feature-rich RPC framework. Paired with its twin, <a href="https://github.com/marsevilspirit/deimos">Deimos</a>, it forms a complete microservices ecosystem for building resilient and scalable applications.</strong>
+</p>
+
+---
+
+## Phobos & Deimos: A Symbiotic Relationship
+
+In the cosmos of microservices, **Phobos** and **Deimos** are two celestial bodies orbiting the same planet: your application. They are designed to work in perfect harmony, each fulfilling a critical role.
+
+*   **Phobos (Fear): The Engine of Communication.** Phobos is the RPC framework that governs the interactions between your services. It provides the speed, resilience, and intelligence needed for high-performance communication. It handles the "how": how services talk to each other, how they handle failures, and how they balance load.
+
+*   **Deimos (Dread): The Foundation of Knowledge.** Deimos is the distributed, consistent key-value store that acts as the central nervous system for your services. It provides service discovery, configuration management, and distributed coordination. It handles the "where": where to find other services and the "what": the configuration that governs their behavior.
+
+Together, they provide a powerful, cohesive, and elegant solution for building and managing complex microservice architectures.
 
 ## Features
 
-Phobos offers a comprehensive set of features to simplify the development, deployment, and management of microservices.
+### Core RPC Framework (Phobos)
 
-### Core Features
+*   **High-Performance RPC:** Lightweight and efficient core for low-latency, high-throughput communication.
+*   **Multiple Serialization Protocols:** Supports JSON, Msgpack, and Protocol Buffers.
+*   **Gzip Compression:** Reduces network bandwidth with automatic payload compression.
+*   **HTTP Gateway:** Enables web clients to interact with Phobos services.
+*   **Timeout Management:** Fine-grained control over request timeouts.
+*   **Flexible Metadata:** Pass contextual information between services for tracing and authentication.
 
-*   **High-Performance RPC:** Built on a lightweight and efficient core, Phobos provides low-latency, high-throughput communication between services.
-*   **Multiple Serialization Protocols:** Supports various serialization formats, including JSON, Msgpack, and Protocol Buffers, allowing for flexibility and performance optimization.
-*   **Gzip Compression:** Automatically compresses large data payloads using Gzip to reduce network bandwidth consumption.
-*   **HTTP Gateway:** A built-in gateway allows for seamless conversion between HTTP and RPC protocols, enabling web clients to interact with Phobos services.
-*   **Timeout Management:** Provides fine-grained control over request timeouts to prevent cascading failures and ensure service responsiveness.
-*   **Flexible Metadata:** Leverages metadata to pass contextual information between services, enabling advanced features like distributed tracing and authentication.
+### Service Governance (with Deimos)
 
-### Service Governance
+*   **Dynamic Service Discovery:** Phobos seamlessly integrates with **Deimos** to dynamically discover and communicate with services without hardcoded addresses.
+*   **Intelligent Load Balancing:** Supports multiple load balancing strategies (Random, Round Robin, Consistent Hash, etc.) using service information from Deimos.
+*   **Resilience and Fault Tolerance:**
+    *   **Circuit Breaker:** Prevents cascading failures.
+    *   **Heartbeat:** Monitors service health.
+*   **Metrics and Monitoring:** Integrates with Prometheus and Grafana for deep insights into service performance.
 
-*   **Service Registration and Discovery:** Integrates with [Deimos](https://github.com/marsevilspirit/Deimos) for dynamic service registration and discovery, allowing services to locate and communicate with each other without hardcoded addresses.
-*   **Load Balancing:** Supports multiple load balancing strategies, including:
-    *   **Random:** Distributes requests randomly among available servers.
-    *   **Round Robin:** Distributes requests in a round-robin fashion.
-    *   **Weighted Round Robin:** Distributes requests based on server weights.
-    *   **Consistent Hash:** Ensures that requests for the same key are routed to the same server.
-    *   **Closest:** Selects the server with the lowest latency.
-*   **Circuit Breaker:** Implements a circuit breaker pattern to prevent a service from repeatedly trying to connect to a failing service, improving overall system resilience.
-*   **Heartbeat:** Sends periodic heartbeat messages to monitor the health of servers and detect failures quickly.
-*   **Metrics and Monitoring:** Integrates with Prometheus for collecting and exposing metrics, and Grafana for visualizing them, providing insights into service performance and health.
+## Quick Start: Phobos with Deimos
 
-## Concepts
+This example demonstrates how to run a service with Phobos that registers itself with a Deimos cluster.
 
-Phobos is composed of three main components:
+### 1. Run Deimos
 
-*   **Server:** The core of the framework, responsible for registering and exposing services.
-*   **Client:** The client-side library that enables services to consume other services. It provides features like service discovery, load balancing, and failure handling.
-*   **Gateway:** An optional component that acts as an HTTP gateway to Phobos services, allowing them to be accessed by web clients.
+First, start your [Deimos](https://github.com/marsevilspirit/deimos) cluster.
 
-## Installation
+### 2. Define Your Service
 
-To use Phobos in your project, you can use `go get`:
-
-```bash
-go get github.com/marsevilspirit/phobos
-```
-
-## Usage
-
-Here's a basic example of how to use Phobos to create a simple "Hello, World" service.
-
-### 1. Define the Service
-
-First, define the service interface and its implementation:
-
+Define your service interface and implementation.
 ```go
 package example
 
@@ -73,36 +79,53 @@ func (t *HelloWorld) Greet(ctx context.Context, args *Args, reply *Reply) error 
 }
 ```
 
-### 2. Create the Server
+### 3. Create the Phobos Server
 
-Next, create a server to host the service:
+Create a server that registers the `HelloWorld` service and uses the `Deimos` plugin for service discovery.
 
 ```go
+// server/main.go
 package main
 
 import (
 	"flag"
+	"log"
 
 	"github.com/marsevilspirit/phobos/example"
 	"github.com/marsevilspirit/phobos/server"
+	"github.com/marsevilspirit/phobos/serverplugin"
 )
 
-var addr = flag.String("addr", "localhost:8972", "server address")
+var (
+	addr     = flag.String("addr", "localhost:8972", "server address")
+	deimosAddr = flag.String("deimosAddr", "localhost:4001", "deimos address")
+	basePath = flag.String("basePath", "/phobos_services", "base path for deimos")
+)
 
 func main() {
 	flag.Parse()
 
-	s := server.NewServer(nil)
+	s := server.NewServer()
+	
+	// Use the Deimos plugin
+	plugin := serverplugin.NewDeimosPlugin(*deimosAddr, *basePath, s, 0)
+	err := plugin.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.Plugins.Add(plugin)
+
 	s.RegisterWithName("HelloWorld", new(example.HelloWorld), "")
 	s.Serve("tcp", *addr)
 }
 ```
 
-### 3. Create the Client
+### 4. Create the Phobos Client
 
-Finally, create a client to consume the service:
+Create a client that discovers the `HelloWorld` service through Deimos.
 
 ```go
+// client/main.go
 package main
 
 import (
@@ -114,17 +137,21 @@ import (
 	"github.com/marsevilspirit/phobos/example"
 )
 
-var addr = flag.String("addr", "localhost:8972", "server address")
+var (
+	deimosAddr = flag.String("deimosAddr", "localhost:4001", "deimos address")
+	basePath = flag.String("basePath", "/phobos_services", "base path for deimos")
+)
 
 func main() {
 	flag.Parse()
 
-	d := client.NewP2PDiscovery("tcp@"+*addr, "")
+	// Discover services via Deimos
+	d := client.NewDeimosDiscovery(*basePath, []string{*deimosAddr}, nil)
 	xclient := client.NewXClient("HelloWorld", client.Failtry, client.RandomSelect, d, client.DefaultOption)
 	defer xclient.Close()
 
 	args := &example.Args{
-		First: "budei",
+		First: "Mars",
 	}
 
 	reply := &example.Reply{}
@@ -134,8 +161,6 @@ func main() {
 		log.Fatalf("failed to call: %v", err)
 	}
 
-	log.Print("reply: ", reply.Second)
+	log.Printf("reply: %s", reply.Second)
 }
 ```
-
-This is just a basic example. For more advanced usage, including service discovery, load balancing, and other features, please refer to the examples in the `example` directory.
