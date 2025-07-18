@@ -215,7 +215,7 @@ func (b *Breaker) Counts() Counts {
 	return b.counts
 }
 
-func (b *Breaker) Execute(req func() (interface{}, error)) (interface{}, error) {
+func (b *Breaker) Execute(req func() (any, error)) (any, error) {
 	generation, err := b.beforeRequest()
 	if err != nil {
 		return nil, err

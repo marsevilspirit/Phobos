@@ -7,25 +7,25 @@ type PluginContainer interface {
 	Remove(plugin Plugin)
 	All() []Plugin
 
-	DoPreCall(ctx context.Context, servicePath, serviceMethod string, args interface{}) error
-	DoPostCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, err error) error
+	DoPreCall(ctx context.Context, servicePath, serviceMethod string, args any) error
+	DoPostCall(ctx context.Context, servicePath, serviceMethod string, args any, reply any, err error) error
 }
 
 type pluginContainer struct {
 	plugins []Plugin
 }
 
-type Plugin interface{}
+type Plugin any
 
 type (
 	// PreCallPlugin is invoked before the client calls a server.
 	PreCallPlugin interface {
-		DoPreCall(ctx context.Context, servicePath, serviceMethod string, args interface{}) error
+		DoPreCall(ctx context.Context, servicePath, serviceMethod string, args any) error
 	}
 
 	// PostCallPlugin is invoked after the client calls a server.
 	PostCallPlugin interface {
-		DoPostCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, err error) error
+		DoPostCall(ctx context.Context, servicePath, serviceMethod string, args any, reply any, err error) error
 	}
 )
 
@@ -54,7 +54,7 @@ func (p *pluginContainer) All() []Plugin {
 }
 
 // DoPreCall executes before call
-func (p *pluginContainer) DoPreCall(ctx context.Context, servicePath, serviceMethod string, args interface{}) error {
+func (p *pluginContainer) DoPreCall(ctx context.Context, servicePath, serviceMethod string, args any) error {
 	for i := range p.plugins {
 		if plugin, ok := p.plugins[i].(PreCallPlugin); ok {
 			err := plugin.DoPreCall(ctx, servicePath, serviceMethod, args)
@@ -68,7 +68,7 @@ func (p *pluginContainer) DoPreCall(ctx context.Context, servicePath, serviceMet
 }
 
 // DoPostCall executes after call
-func (p *pluginContainer) DoPostCall(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, err error) error {
+func (p *pluginContainer) DoPostCall(ctx context.Context, servicePath, serviceMethod string, args any, reply any, err error) error {
 	for i := range p.plugins {
 		if plugin, ok := p.plugins[i].(PostCallPlugin); ok {
 			err = plugin.DoPostCall(ctx, servicePath, serviceMethod, args, reply, err)

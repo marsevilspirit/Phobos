@@ -78,7 +78,7 @@ func newDirectConn(c *Client, network, address string) (net.Conn, error) {
 
 var connected = "200 Connected to mrpc"
 
-func newDirectHTTPConn(c *Client, network, address string, opts ...interface{}) (net.Conn, error) {
+func newDirectHTTPConn(c *Client, network, address string, opts ...any) (net.Conn, error) {
 	var path string
 
 	if len(opts) > 0 {

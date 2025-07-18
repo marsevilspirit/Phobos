@@ -12,7 +12,7 @@ import (
 )
 
 type Selector interface {
-	Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string
+	Select(ctx context.Context, servicePath, serviceMethod string, args any) string
 	UpdateServer(servers map[string]string)
 }
 
@@ -50,7 +50,7 @@ func newRandomSelector(servers map[string]string) Selector {
 	return &randomSelector{servers: ss}
 }
 
-func (s randomSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
+func (s randomSelector) Select(ctx context.Context, servicePath, serviceMethod string, args any) string {
 	ss := s.servers
 
 	if len(ss) == 0 {
@@ -85,7 +85,7 @@ func newRoundRobinSelector(servers map[string]string) Selector {
 	return &roundRobinSelector{servers: ss}
 }
 
-func (s *roundRobinSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
+func (s *roundRobinSelector) Select(ctx context.Context, servicePath, serviceMethod string, args any) string {
 	ss := s.servers
 
 	if len(ss) == 0 {
@@ -116,7 +116,7 @@ func newWeightRoundRobinSelector(servers map[string]string) Selector {
 	return &weightedRoundRobinSelector{servers: ss}
 }
 
-func (s *weightedRoundRobinSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
+func (s *weightedRoundRobinSelector) Select(ctx context.Context, servicePath, serviceMethod string, args any) string {
 	ss := s.servers
 	if len(ss) == 0 {
 		return ""
@@ -181,7 +181,7 @@ func newGeoSelector(servers map[string]string, latitude, longitude float64) Sele
 	return &geoSelector{servers: ss, Latitude: latitude, Longitude: longitude, r: r}
 }
 
-func (s *geoSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
+func (s *geoSelector) Select(ctx context.Context, servicePath, serviceMethod string, args any) string {
 	if len(s.servers) == 0 {
 		return ""
 	}
@@ -251,7 +251,7 @@ func newConsistentHashSelector(servers map[string]string) Selector {
 	return &consistentHashSelector{servers: ss}
 }
 
-func (s *consistentHashSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
+func (s *consistentHashSelector) Select(ctx context.Context, servicePath, serviceMethod string, args any) string {
 	ss := s.servers
 
 	if len(ss) == 0 {
@@ -281,7 +281,7 @@ func newWeightedICMPSelector(servers map[string]string) Selector {
 	return &weightedICMPSelector{servers: ss}
 }
 
-func (s weightedICMPSelector) Select(ctx context.Context, servicePath, serviceMethod string, args interface{}) string {
+func (s weightedICMPSelector) Select(ctx context.Context, servicePath, serviceMethod string, args any) string {
 	ss := s.servers
 	if len(ss) == 0 {
 		return ""

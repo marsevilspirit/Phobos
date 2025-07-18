@@ -50,12 +50,12 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 	return ast.IsExported(t.Name()) || t.PkgPath() == ""
 }
 
-func (s *Server) Register(rcvr interface{}, metadata string) error {
+func (s *Server) Register(rcvr any, metadata string) error {
 	s.Plugins.DoRegister("", rcvr, metadata)
 	return s.register(rcvr, "", false)
 }
 
-func (s *Server) RegisterWithName(name string, rcvr interface{}, metadata string) error {
+func (s *Server) RegisterWithName(name string, rcvr any, metadata string) error {
 	if s.Plugins == nil {
 		s.Plugins = &pluginContainer{}
 	}
@@ -63,12 +63,12 @@ func (s *Server) RegisterWithName(name string, rcvr interface{}, metadata string
 	return s.register(rcvr, name, true)
 }
 
-func (s *Server) RegisterFunction(servicePath string, fn interface{}, metadata string) error {
+func (s *Server) RegisterFunction(servicePath string, fn any, metadata string) error {
 	s.Plugins.DoRegisterFunction("", fn, metadata)
 	return s.registerFunction(servicePath, "", fn, false)
 }
 
-func (s *Server) RegisterFunctionWithName(servicePath string, name string, fn interface{}, metadata string) error {
+func (s *Server) RegisterFunctionWithName(servicePath string, name string, fn any, metadata string) error {
 	if s.Plugins == nil {
 		s.Plugins = &pluginContainer{}
 	}
@@ -76,7 +76,7 @@ func (s *Server) RegisterFunctionWithName(servicePath string, name string, fn in
 	return s.registerFunction(servicePath, name, fn, true)
 }
 
-func (s *Server) register(rcvr interface{}, name string, useName bool) error {
+func (s *Server) register(rcvr any, name string, useName bool) error {
 	s.serviceMapMu.Lock()
 	defer s.serviceMapMu.Unlock()
 
@@ -125,7 +125,7 @@ func (s *Server) register(rcvr interface{}, name string, useName bool) error {
 	return nil
 }
 
-func (s *Server) registerFunction(servicePath string, name string, fn interface{}, useName bool) error {
+func (s *Server) registerFunction(servicePath string, name string, fn any, useName bool) error {
 	s.serviceMapMu.Lock()
 	defer s.serviceMapMu.Unlock()
 	if s.serviceMap == nil {

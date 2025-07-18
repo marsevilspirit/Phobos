@@ -13,21 +13,21 @@ import (
 type TracePlugin struct {
 }
 
-func (p *TracePlugin) Register(name string, rcvr interface{}, metadata string) error {
+func (p *TracePlugin) Register(name string, rcvr any, metadata string) error {
 	tr := trace.New("mrpc.Server", "Register")
 	defer tr.Finish()
 	tr.LazyPrintf("Registering %s: %T", name, rcvr)
 	return nil
 }
 
-func (p *TracePlugin) RegisterFunction(name string, fn interface{}, metadata string) error {
+func (p *TracePlugin) RegisterFunction(name string, fn any, metadata string) error {
 	tr := trace.New("mrpc.Server", "RegisterFunction")
 	defer tr.Finish()
 	tr.LazyPrintf("Registering %s: %T", name, fn)
 	return nil
 }
 
-func (p *TracePlugin) GetFunctionName(i interface{}) string {
+func (p *TracePlugin) GetFunctionName(i any) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 

@@ -24,10 +24,10 @@ type XClient interface {
 	SetSelector(s Selector)
 	ConfigGeoSelector(latitude, longitude float64)
 	Auth(auth string)
-	Go(ctx context.Context, serviceMethod string, args, reply interface{}, done chan *Call) (*Call, error)
-	Call(ctx context.Context, serviceMethod string, args, reply interface{}) error
-	Broadcast(ctx context.Context, serviceMethod string, args, reply interface{}) error
-	Fork(ctx context.Context, serviceMethod string, args, reply interface{}) error
+	Go(ctx context.Context, serviceMethod string, args, reply any, done chan *Call) (*Call, error)
+	Call(ctx context.Context, serviceMethod string, args, reply any) error
+	Broadcast(ctx context.Context, serviceMethod string, args, reply any) error
+	Fork(ctx context.Context, serviceMethod string, args, reply any) error
 	SendRaw(ctx context.Context, r *protocol.Message) (map[string]string, []byte, error)
 	Close() error
 }
@@ -187,7 +187,7 @@ func (c *xClient) watch(ch chan []*KVPair) {
 }
 
 // selectClient 方法，用于根据选择模式选择客户端
-func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod string, args interface{}) (string, RPCClient, error) {
+func (c *xClient) selectClient(ctx context.Context, servicePath, serviceMethod string, args any) (string, RPCClient, error) {
 	k := c.selector.Select(ctx, servicePath, serviceMethod, args)
 	if k == "" {
 		return "", nil, ErrXClientNoServer
@@ -257,7 +257,7 @@ func splitNetworkAndAddress(server string) (string, string) {
 	return ss[0], ss[1]
 }
 
-func (c *xClient) wrapCall(ctx context.Context, client RPCClient, serviceMethod string, args interface{}, reply interface{}) error {
+func (c *xClient) wrapCall(ctx context.Context, client RPCClient, serviceMethod string, args any, reply any) error {
 	if client == nil {
 		return ErrServerUnavailable
 	}
@@ -269,7 +269,7 @@ func (c *xClient) wrapCall(ctx context.Context, client RPCClient, serviceMethod 
 }
 
 // Go 方法实现异步调用 RPC
-func (c *xClient) Go(ctx context.Context, serviceMethod string, args, reply interface{}, done chan *Call) (*Call, error) {
+func (c *xClient) Go(ctx context.Context, serviceMethod string, args, reply any, done chan *Call) (*Call, error) {
 	if c.isShutdown {
 		return nil, ErrXClientShutdown
 	}
@@ -292,7 +292,7 @@ func (c *xClient) Go(ctx context.Context, serviceMethod string, args, reply inte
 }
 
 // Call 方法实现同步调用 RPC，通过调用 Go 方法并等待结果
-func (c *xClient) Call(ctx context.Context, serviceMethod string, args, reply interface{}) error {
+func (c *xClient) Call(ctx context.Context, serviceMethod string, args, reply any) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
 	}
@@ -437,7 +437,7 @@ func (c *xClient) SendRaw(ctx context.Context, r *protocol.Message) (map[string]
 	}
 }
 
-func (c *xClient) Broadcast(ctx context.Context, serviceMethod string, args, reply interface{}) error {
+func (c *xClient) Broadcast(ctx context.Context, serviceMethod string, args, reply any) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
 	}
@@ -497,7 +497,7 @@ check:
 	return err
 }
 
-func (c *xClient) Fork(ctx context.Context, serviceMethod string, args, reply interface{}) error {
+func (c *xClient) Fork(ctx context.Context, serviceMethod string, args, reply any) error {
 	if c.isShutdown {
 		return ErrXClientShutdown
 	}

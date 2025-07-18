@@ -3,7 +3,7 @@ package protocol
 import "sync"
 
 var msgPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		header := Header([12]byte{})
 		header[0] = magicNumber
 
@@ -23,7 +23,7 @@ func FreeMsg(msg *Message) {
 }
 
 var poolUint32Data = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		data := make([]byte, 4)
 		return &data
 	},

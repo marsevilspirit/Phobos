@@ -26,7 +26,7 @@ func HashString(s string) uint64 {
 	return h.Sum64()
 }
 
-func JumpConsistentHash(len int, options ...interface{}) int {
+func JumpConsistentHash(len int, options ...any) int {
 	var keyString string
 	for _, opt := range options {
 		keyString = keyString + "/" + toString(opt)
@@ -35,13 +35,13 @@ func JumpConsistentHash(len int, options ...interface{}) int {
 	return int(Hash(key, int32(len)))
 }
 
-func toString(obj interface{}) string {
+func toString(obj any) string {
 	return fmt.Sprintf("%v", obj)
 }
 
 // HashServiceAndArgs define a hash function
-type HashServiceAndArgs func(len int, options ...interface{}) int
+type HashServiceAndArgs func(len int, options ...any) int
 
 // ConsistentFunction define a hash function
 // Return service address, like "tcp@127.0.0.1:8970"
-type ConsistentAddrStrFunction func(options ...interface{}) string
+type ConsistentAddrStrFunction func(options ...any) string

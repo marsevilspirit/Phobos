@@ -79,7 +79,7 @@ func (p *DeimosRegisterPlugin) Start() error {
 
 // Register registers a service with deimos.
 // It creates a node at <BasePath>/<serviceName>/<ServiceAddress> with the provided metadata.
-func (p *DeimosRegisterPlugin) Register(name string, rcvr interface{}, metadata string) (err error) {
+func (p *DeimosRegisterPlugin) Register(name string, rcvr any, metadata string) (err error) {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("register service 'name' can't be empty")
 	}

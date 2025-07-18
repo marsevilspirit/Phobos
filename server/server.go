@@ -59,7 +59,7 @@ type Server struct {
 
 	tlsConfig *tls.Config
 
-	options map[string]interface{}
+	options map[string]any
 
 	Plugins PluginContainer
 
@@ -69,7 +69,7 @@ type Server struct {
 func NewServer(options ...OptionFn) *Server {
 	s := &Server{
 		Plugins: &pluginContainer{},
-		options: make(map[string]interface{}),
+		options: make(map[string]any),
 	}
 
 	for _, opt := range options {

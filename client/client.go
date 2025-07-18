@@ -51,7 +51,7 @@ var DefaultOption = Option{
 }
 
 type Breaker interface {
-	Execute(func() (interface{}, error)) (interface{}, error)
+	Execute(func() (any, error)) (any, error)
 }
 
 var defaultBreakerSettings = breaker.Settings{
@@ -80,8 +80,8 @@ type Call struct {
 	Metadata    map[string]string
 	ResMetadata map[string]string
 
-	Args  interface{}
-	Reply interface{}
+	Args  any
+	Reply any
 	Error error
 	Done  chan *Call
 	IsRaw bool
@@ -101,8 +101,8 @@ type seqKey struct{}
 
 type RPCClient interface {
 	Connect(network, address string) error
-	Go(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}, done chan *Call) *Call
-	Call(ctx context.Context, servicePath, serviceMethod string, args interface{}, reply interface{}) error
+	Go(ctx context.Context, servicePath, serviceMethod string, args any, reply any, done chan *Call) *Call
+	Call(ctx context.Context, servicePath, serviceMethod string, args any, reply any) error
 	SendRaw(ctx context.Context, r *protocol.Message) (map[string]string, []byte, error)
 	Close() error
 
@@ -211,9 +211,9 @@ func (client *Client) Close() error {
 	return client.Conn.Close()
 }
 
-func (client *Client) Call(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}) error {
+func (client *Client) Call(ctx context.Context, servicePath, serviceMethod string, args, reply any) error {
 	if client.option.Breaker != nil {
-		_, err := client.option.Breaker.Execute(func() (interface{}, error) {
+		_, err := client.option.Breaker.Execute(func() (any, error) {
 			return nil, client.call(ctx, servicePath, serviceMethod, args, reply)
 		})
 		return err
@@ -221,7 +221,7 @@ func (client *Client) Call(ctx context.Context, servicePath, serviceMethod strin
 		return client.call(ctx, servicePath, serviceMethod, args, reply)
 	}
 }
-func (client *Client) call(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}) error {
+func (client *Client) call(ctx context.Context, servicePath, serviceMethod string, args, reply any) error {
 	seq := new(uint64)
 	ctx = context.WithValue(ctx, seqKey{}, seq)
 	Done := client.Go(ctx, servicePath, serviceMethod, args, reply, make(chan *Call, 1)).Done
@@ -390,7 +390,7 @@ func (client *Client) IsShutdown() bool {
 	return client.shutdown
 }
 
-func (client *Client) Go(ctx context.Context, servicePath, serviceMethod string, args, reply interface{}, done chan *Call) *Call {
+func (client *Client) Go(ctx context.Context, servicePath, serviceMethod string, args, reply any, done chan *Call) *Call {
 	call := &Call{
 		ServicePath:   servicePath,
 		ServiceMethod: serviceMethod,

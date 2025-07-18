@@ -13,7 +13,7 @@ type Reset interface {
 
 var argsReplyPools = &typePools{
 	pools: make(map[reflect.Type]*sync.Pool),
-	New: func(t reflect.Type) interface{} {
+	New: func(t reflect.Type) any {
 		var argv reflect.Value
 
 		if t.Kind() == reflect.Ptr {
@@ -28,18 +28,18 @@ var argsReplyPools = &typePools{
 
 type typePools struct {
 	pools map[reflect.Type]*sync.Pool
-	New   func(t reflect.Type) interface{}
+	New   func(t reflect.Type) any
 }
 
 func (p *typePools) Init(t reflect.Type) {
 	tp := &sync.Pool{}
-	tp.New = func() interface{} {
+	tp.New = func() any {
 		return p.New(t)
 	}
 	p.pools[t] = tp
 }
 
-func (p *typePools) Put(t reflect.Type, x interface{}) {
+func (p *typePools) Put(t reflect.Type, x any) {
 	if !UsePool {
 		return
 	}
@@ -49,7 +49,7 @@ func (p *typePools) Put(t reflect.Type, x interface{}) {
 
 	p.pools[t].Put(x)
 }
-func (p *typePools) Get(t reflect.Type) interface{} {
+func (p *typePools) Get(t reflect.Type) any {
 	if !UsePool {
 		return p.New(t)
 	}

@@ -10,13 +10,13 @@ import (
 )
 
 type Codec interface {
-	Encode(i interface{}) ([]byte, error)
-	Decode(data []byte, i interface{}) error
+	Encode(i any) ([]byte, error)
+	Decode(data []byte, i any) error
 }
 
 type ByteCodec struct{}
 
-func (c ByteCodec) Encode(i interface{}) ([]byte, error) {
+func (c ByteCodec) Encode(i any) ([]byte, error) {
 	if data, ok := i.([]byte); ok {
 		return data, nil
 	}
@@ -29,7 +29,7 @@ func (c ByteCodec) Encode(i interface{}) ([]byte, error) {
 	return nil, fmt.Errorf("%T is not a []byte", i)
 }
 
-func (c ByteCodec) Decode(data []byte, i interface{}) error {
+func (c ByteCodec) Decode(data []byte, i any) error {
 	v := reflect.Indirect(reflect.ValueOf(i))
 	v.SetBytes(data)
 	return nil
@@ -37,17 +37,17 @@ func (c ByteCodec) Decode(data []byte, i interface{}) error {
 
 type JSONCodec struct{}
 
-func (c JSONCodec) Encode(i interface{}) ([]byte, error) {
+func (c JSONCodec) Encode(i any) ([]byte, error) {
 	return json.Marshal(i)
 }
 
-func (c JSONCodec) Decode(data []byte, i interface{}) error {
+func (c JSONCodec) Decode(data []byte, i any) error {
 	return json.Unmarshal(data, i)
 }
 
 type ProtobufCodec struct{}
 
-func (c ProtobufCodec) Encode(i interface{}) ([]byte, error) {
+func (c ProtobufCodec) Encode(i any) ([]byte, error) {
 	if m, ok := i.(pb.Message); ok {
 		return pb.Marshal(m)
 	}
@@ -55,7 +55,7 @@ func (c ProtobufCodec) Encode(i interface{}) ([]byte, error) {
 	return nil, fmt.Errorf("%T is not a proto.Marshaler", i)
 }
 
-func (c ProtobufCodec) Decode(data []byte, i interface{}) error {
+func (c ProtobufCodec) Decode(data []byte, i any) error {
 	if m, ok := i.(pb.Message); ok {
 		return pb.Unmarshal(data, m)
 	}
@@ -65,10 +65,10 @@ func (c ProtobufCodec) Decode(data []byte, i interface{}) error {
 
 type MsgpackCodec struct{}
 
-func (c MsgpackCodec) Encode(i interface{}) ([]byte, error) {
+func (c MsgpackCodec) Encode(i any) ([]byte, error) {
 	return msgpack.Marshal(i)
 }
 
-func (c MsgpackCodec) Decode(data []byte, i interface{}) error {
+func (c MsgpackCodec) Decode(data []byte, i any) error {
 	return msgpack.Unmarshal(data, i)
 }

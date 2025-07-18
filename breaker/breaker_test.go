@@ -52,7 +52,7 @@ func TestBreaker(t *testing.T) {
 	assert.Equal(t, cb.State(), Closed)
 
 	// 测试请求和响应处理
-	result, err := cb.Execute(func() (interface{}, error) {
+	result, err := cb.Execute(func() (any, error) {
 		return 42, nil
 	})
 	assert.Nil(t, err)
@@ -61,7 +61,7 @@ func TestBreaker(t *testing.T) {
 	assert.Equal(t, uint32(1), cb.Counts().TotalSuccesses)
 
 	// 测试故障处理
-	cb.Execute(func() (interface{}, error) {
+	cb.Execute(func() (any, error) {
 		return 0, errors.New("error")
 	})
 	assert.Equal(t, uint32(1), cb.Counts().TotalFailures)
@@ -101,7 +101,7 @@ func TestCircuitBreakerTripAndReset(t *testing.T) {
 
 	// 模拟3次失败的请求，检测熔断状态
 	for i := 0; i < 3; i++ {
-		result, err := b.Execute(func() (interface{}, error) {
+		result, err := b.Execute(func() (any, error) {
 			return 0, errors.New("RPC error")
 		})
 		assert.NotNil(t, err)
@@ -112,7 +112,7 @@ func TestCircuitBreakerTripAndReset(t *testing.T) {
 	assert.Equal(t, b.State(), Open)
 
 	// 尝试另一个请求，应立即被拒绝
-	result, err := b.Execute(func() (interface{}, error) {
+	result, err := b.Execute(func() (any, error) {
 		return 1, nil
 	})
 	assert.Equal(t, err, ErrOpenState)
@@ -125,7 +125,7 @@ func TestCircuitBreakerTripAndReset(t *testing.T) {
 	assert.Equal(t, b.State(), HalfOpen)
 
 	// 模拟成功的请求，应该重新进入Closed状态
-	result, err = b.Execute(func() (interface{}, error) {
+	result, err = b.Execute(func() (any, error) {
 		return 1, nil
 	})
 	assert.Nil(t, err)

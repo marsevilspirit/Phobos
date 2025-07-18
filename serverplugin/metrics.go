@@ -48,7 +48,7 @@ func NewMetricsPlugin() *MetricsPlugin {
 }
 
 // Register 实现 RegisterPlugin 接口
-func (mp *MetricsPlugin) Register(name string, rcvr interface{}, metadata string) error {
+func (mp *MetricsPlugin) Register(name string, rcvr any, metadata string) error {
 	fmt.Printf("Plugin MetricsPlugin registered with metadata: {%s}\n", metadata)
 	return nil
 }
