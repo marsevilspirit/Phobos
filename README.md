@@ -1,26 +1,62 @@
-### phobos
+# Phobos: A Feature-Rich RPC Framework for Service Governance
 
-phobos 是一个服务治理的RPC框架.  
-通过对net/rpc的源码学习，进行扩展开发.
+Phobos is a powerful and extensible RPC framework designed for building robust and scalable microservices. It is inspired by the source code of `net/rpc` and extends it with a wide range of features for service governance.
 
-##### 特点
+## Features
 
-1.能进行基本的RPC调用  
-2.支持多种序列化协议  
-3.使用Gzip对过长的data进行压缩  
-4.支持http与rpc协议之间转换  
-5.支持超时处理  
-6.使用较为灵活的元数据(metadata)传递data  
-7.使用[Deimos](https://github.com/marsevilspirit/Deimos)做服务注册和服务发现  
-8.支持多种负载均衡  
-9.支持熔断  
-10.支持发送心跳包  
-11.支持Prometheus metrics和grafana可视化
+Phobos offers a comprehensive set of features to simplify the development, deployment, and management of microservices.
 
-##### 使用方法
+### Core Features
 
-rpc定义:
+*   **High-Performance RPC:** Built on a lightweight and efficient core, Phobos provides low-latency, high-throughput communication between services.
+*   **Multiple Serialization Protocols:** Supports various serialization formats, including JSON, Msgpack, and Protocol Buffers, allowing for flexibility and performance optimization.
+*   **Gzip Compression:** Automatically compresses large data payloads using Gzip to reduce network bandwidth consumption.
+*   **HTTP Gateway:** A built-in gateway allows for seamless conversion between HTTP and RPC protocols, enabling web clients to interact with Phobos services.
+*   **Timeout Management:** Provides fine-grained control over request timeouts to prevent cascading failures and ensure service responsiveness.
+*   **Flexible Metadata:** Leverages metadata to pass contextual information between services, enabling advanced features like distributed tracing and authentication.
+
+### Service Governance
+
+*   **Service Registration and Discovery:** Integrates with [Deimos](https://github.com/marsevilspirit/Deimos) for dynamic service registration and discovery, allowing services to locate and communicate with each other without hardcoded addresses.
+*   **Load Balancing:** Supports multiple load balancing strategies, including:
+    *   **Random:** Distributes requests randomly among available servers.
+    *   **Round Robin:** Distributes requests in a round-robin fashion.
+    *   **Weighted Round Robin:** Distributes requests based on server weights.
+    *   **Consistent Hash:** Ensures that requests for the same key are routed to the same server.
+    *   **Closest:** Selects the server with the lowest latency.
+*   **Circuit Breaker:** Implements a circuit breaker pattern to prevent a service from repeatedly trying to connect to a failing service, improving overall system resilience.
+*   **Heartbeat:** Sends periodic heartbeat messages to monitor the health of servers and detect failures quickly.
+*   **Metrics and Monitoring:** Integrates with Prometheus for collecting and exposing metrics, and Grafana for visualizing them, providing insights into service performance and health.
+
+## Concepts
+
+Phobos is composed of three main components:
+
+*   **Server:** The core of the framework, responsible for registering and exposing services.
+*   **Client:** The client-side library that enables services to consume other services. It provides features like service discovery, load balancing, and failure handling.
+*   **Gateway:** An optional component that acts as an HTTP gateway to Phobos services, allowing them to be accessed by web clients.
+
+## Installation
+
+To use Phobos in your project, you can use `go get`:
+
+```bash
+go get github.com/marsevilspirit/phobos
+```
+
+## Usage
+
+Here's a basic example of how to use Phobos to create a simple "Hello, World" service.
+
+### 1. Define the Service
+
+First, define the service interface and its implementation:
+
 ```go
+package example
+
+import "context"
+
 type Args struct {
 	First string
 }
@@ -37,8 +73,22 @@ func (t *HelloWorld) Greet(ctx context.Context, args *Args, reply *Reply) error 
 }
 ```
 
-server:
+### 2. Create the Server
+
+Next, create a server to host the service:
+
 ```go
+package main
+
+import (
+	"flag"
+
+	"github.com/marsevilspirit/phobos/example"
+	"github.com/marsevilspirit/phobos/server"
+)
+
+var addr = flag.String("addr", "localhost:8972", "server address")
+
 func main() {
 	flag.Parse()
 
@@ -48,13 +98,29 @@ func main() {
 }
 ```
 
-client:
+### 3. Create the Client
+
+Finally, create a client to consume the service:
+
 ```go
+package main
+
+import (
+	"context"
+	"flag"
+	"log"
+
+	"github.com/marsevilspirit/phobos/client"
+	"github.com/marsevilspirit/phobos/example"
+)
+
+var addr = flag.String("addr", "localhost:8972", "server address")
+
 func main() {
 	flag.Parse()
 
 	d := client.NewP2PDiscovery("tcp@"+*addr, "")
-	xclient := client.NewXClient("HelloWorld", "Greet", client.Failtry, client.RandomSelect, d, client.DefaultOption)
+	xclient := client.NewXClient("HelloWorld", client.Failtry, client.RandomSelect, d, client.DefaultOption)
 	defer xclient.Close()
 
 	args := &example.Args{
@@ -63,7 +129,7 @@ func main() {
 
 	reply := &example.Reply{}
 
-	err := xclient.Call(context.Background(), args, reply, nil)
+	err := xclient.Call(context.Background(), "Greet", args, reply)
 	if err != nil {
 		log.Fatalf("failed to call: %v", err)
 	}
@@ -71,3 +137,5 @@ func main() {
 	log.Print("reply: ", reply.Second)
 }
 ```
+
+This is just a basic example. For more advanced usage, including service discovery, load balancing, and other features, please refer to the examples in the `example` directory.
