@@ -1,0 +1,86 @@
+2025-08-12T23:21:48.840+0800	[31mERROR[0m	log/logger.go:264	test error message	{"error": "test error"}
+github.com/marsevilspirit/phobos/log.(*zapLogger).Error
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:264
+github.com/marsevilspirit/phobos/log.TestLoggerWithError
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:65
+testing.tRunner
+	/usr/lib/go/src/testing/testing.go:1792
+2025-08-12T23:21:48.841+0800	[33mWARN[0m	log/logger.go:252	test warn
+2025-08-12T23:21:48.841+0800	[33mWARN[0m	log/logger.go:258	test warn message
+2025-08-12T23:21:48.841+0800	[31mERROR[0m	log/logger.go:264	test error
+github.com/marsevilspirit/phobos/log.(*zapLogger).Error
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:264
+github.com/marsevilspirit/phobos/log.Error
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:362
+github.com/marsevilspirit/phobos/log.TestGlobalFunctions
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:159
+testing.tRunner
+	/usr/lib/go/src/testing/testing.go:1792
+2025-08-12T23:21:48.841+0800	[31mERROR[0m	log/logger.go:270	test error message
+github.com/marsevilspirit/phobos/log.(*zapLogger).Errorf
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:270
+github.com/marsevilspirit/phobos/log.Errorf
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:366
+github.com/marsevilspirit/phobos/log.TestGlobalFunctions
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:160
+testing.tRunner
+	/usr/lib/go/src/testing/testing.go:1792
+2025-08-12T23:21:48.842+0800	[32mINFO[0m	log/logger.go:240	这是一条信息日志
+2025-08-12T23:21:48.842+0800	[32mINFO[0m	log/logger.go:246	信息日志格式: 测试消息
+2025-08-12T23:21:48.842+0800	[33mWARN[0m	log/logger.go:252	这是一条警告日志
+2025-08-12T23:21:48.842+0800	[33mWARN[0m	log/logger.go:258	警告日志格式: 测试消息
+2025-08-12T23:21:48.842+0800	[31mERROR[0m	log/logger.go:264	这是一条错误日志
+github.com/marsevilspirit/phobos/log.(*zapLogger).Error
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:264
+github.com/marsevilspirit/phobos/log.TestColorLogger.func4
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:260
+testing.tRunner
+	/usr/lib/go/src/testing/testing.go:1792
+2025-08-12T23:21:48.842+0800	[31mERROR[0m	log/logger.go:270	错误日志格式: 测试消息
+github.com/marsevilspirit/phobos/log.(*zapLogger).Errorf
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:270
+github.com/marsevilspirit/phobos/log.TestColorLogger.func4
+	/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:261
+testing.tRunner
+	/usr/lib/go/src/testing/testing.go:1792
+2025-08-12T23:21:48.842+0800	[32mINFO[0m	log/logger.go:240	用户登录	{"user_id": "123"}
+2025-08-12T23:21:48.842+0800	[32mINFO[0m	log/logger.go:240	认证服务调用	{"service": "auth", "method": "login"}
+{"level":"ERROR","timestamp":"2025-08-12T23:22:15.558+0800","caller":"log/logger.go:296","message":"test error message","error":"test error","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:296\ngithub.com/marsevilspirit/phobos/log.TestLoggerWithError\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:65\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"WARN","timestamp":"2025-08-12T23:22:15.558+0800","caller":"log/logger.go:284","message":"test warn"}
+{"level":"WARN","timestamp":"2025-08-12T23:22:15.558+0800","caller":"log/logger.go:290","message":"test warn message"}
+{"level":"ERROR","timestamp":"2025-08-12T23:22:15.558+0800","caller":"log/logger.go:296","message":"test error","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:296\ngithub.com/marsevilspirit/phobos/log.Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:394\ngithub.com/marsevilspirit/phobos/log.TestGlobalFunctions\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:159\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"ERROR","timestamp":"2025-08-12T23:22:15.558+0800","caller":"log/logger.go:302","message":"test error message","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Errorf\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:302\ngithub.com/marsevilspirit/phobos/log.Errorf\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:398\ngithub.com/marsevilspirit/phobos/log.TestGlobalFunctions\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:160\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"INFO","timestamp":"2025-08-12T23:22:15.559+0800","caller":"log/logger.go:272","message":"这是一条信息日志"}
+{"level":"INFO","timestamp":"2025-08-12T23:22:15.559+0800","caller":"log/logger.go:278","message":"信息日志格式: 测试消息"}
+{"level":"WARN","timestamp":"2025-08-12T23:22:15.559+0800","caller":"log/logger.go:284","message":"这是一条警告日志"}
+{"level":"WARN","timestamp":"2025-08-12T23:22:15.559+0800","caller":"log/logger.go:290","message":"警告日志格式: 测试消息"}
+{"level":"ERROR","timestamp":"2025-08-12T23:22:15.559+0800","caller":"log/logger.go:296","message":"这是一条错误日志","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:296\ngithub.com/marsevilspirit/phobos/log.TestColorLogger.func4\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:260\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"ERROR","timestamp":"2025-08-12T23:22:15.559+0800","caller":"log/logger.go:302","message":"错误日志格式: 测试消息","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Errorf\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:302\ngithub.com/marsevilspirit/phobos/log.TestColorLogger.func4\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:261\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"INFO","timestamp":"2025-08-12T23:22:15.559+0800","caller":"log/logger.go:272","message":"用户登录","user_id":"123"}
+{"level":"INFO","timestamp":"2025-08-12T23:22:15.559+0800","caller":"log/logger.go:272","message":"认证服务调用","service":"auth","method":"login"}
+{"level":"ERROR","timestamp":"2025-08-12T23:24:35.744+0800","caller":"log/logger.go:274","message":"test error message","error":"test error","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:274\ngithub.com/marsevilspirit/phobos/log.TestLoggerWithError\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:65\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"WARN","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:262","message":"test warn"}
+{"level":"WARN","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:268","message":"test warn message"}
+{"level":"ERROR","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:274","message":"test error","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:274\ngithub.com/marsevilspirit/phobos/log.Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:372\ngithub.com/marsevilspirit/phobos/log.TestGlobalFunctions\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:159\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"ERROR","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:280","message":"test error message","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Errorf\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:280\ngithub.com/marsevilspirit/phobos/log.Errorf\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:376\ngithub.com/marsevilspirit/phobos/log.TestGlobalFunctions\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:160\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"INFO","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:250","message":"这是一条信息日志"}
+{"level":"INFO","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:256","message":"信息日志格式: 测试消息"}
+{"level":"WARN","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:262","message":"这是一条警告日志"}
+{"level":"WARN","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:268","message":"警告日志格式: 测试消息"}
+{"level":"ERROR","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:274","message":"这是一条错误日志","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:274\ngithub.com/marsevilspirit/phobos/log.TestColorLogger.func4\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:260\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"ERROR","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:280","message":"错误日志格式: 测试消息","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Errorf\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:280\ngithub.com/marsevilspirit/phobos/log.TestColorLogger.func4\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:261\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"INFO","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:250","message":"用户登录","user_id":"123"}
+{"level":"INFO","timestamp":"2025-08-12T23:24:35.745+0800","caller":"log/logger.go:250","message":"认证服务调用","service":"auth","method":"login"}
+{"level":"ERROR","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:274","message":"test error message","error":"test error","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:274\ngithub.com/marsevilspirit/phobos/log.TestLoggerWithError\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:65\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"WARN","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:262","message":"test warn"}
+{"level":"WARN","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:268","message":"test warn message"}
+{"level":"ERROR","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:274","message":"test error","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:274\ngithub.com/marsevilspirit/phobos/log.Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:372\ngithub.com/marsevilspirit/phobos/log.TestGlobalFunctions\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:159\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"ERROR","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:280","message":"test error message","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Errorf\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:280\ngithub.com/marsevilspirit/phobos/log.Errorf\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:376\ngithub.com/marsevilspirit/phobos/log.TestGlobalFunctions\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:160\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"INFO","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:250","message":"这是一条信息日志"}
+{"level":"INFO","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:256","message":"信息日志格式: 测试消息"}
+{"level":"WARN","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:262","message":"这是一条警告日志"}
+{"level":"WARN","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:268","message":"警告日志格式: 测试消息"}
+{"level":"ERROR","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:274","message":"这是一条错误日志","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Error\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:274\ngithub.com/marsevilspirit/phobos/log.TestColorLogger.func4\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:260\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"ERROR","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:280","message":"错误日志格式: 测试消息","stacktrace":"github.com/marsevilspirit/phobos/log.(*zapLogger).Errorf\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger.go:280\ngithub.com/marsevilspirit/phobos/log.TestColorLogger.func4\n\t/home/mars/code/phobos-deimos-workspace/Phobos/log/logger_test.go:261\ntesting.tRunner\n\t/usr/lib/go/src/testing/testing.go:1792"}
+{"level":"INFO","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:250","message":"用户登录","user_id":"123"}
+{"level":"INFO","timestamp":"2025-08-12T23:27:10.206+0800","caller":"log/logger.go:250","message":"认证服务调用","service":"auth","method":"login"}

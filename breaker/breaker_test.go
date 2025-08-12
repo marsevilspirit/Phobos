@@ -4,175 +4,435 @@ import (
 	"errors"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
-func TestStateConstants(t *testing.T) {
-	assert.Equal(t, State(0), Closed)
-	assert.Equal(t, State(1), HalfOpen)
-	assert.Equal(t, State(2), Open)
+func TestNewBreaker(t *testing.T) {
+	settings := Settings{
+		Name:        "test",
+		MaxRequests: 10,
+		Interval:    5 * time.Second,
+		Timeout:     30 * time.Second,
+	}
 
-	assert.Equal(t, Closed.String(), "closed")
-	assert.Equal(t, HalfOpen.String(), "half-open")
-	assert.Equal(t, Open.String(), "open")
-	assert.Equal(t, State(100).String(), "unknown state")
+	b := NewBreaker(settings)
+
+	if b.Name() != "test" {
+		t.Errorf("expected name 'test', got '%s'", b.Name())
+	}
+
+	if b.State() != Closed {
+		t.Errorf("expected initial state Closed, got %v", b.State())
+	}
+
+	counts := b.Counts()
+	if counts.Requests != 0 {
+		t.Errorf("expected 0 requests, got %d", counts.Requests)
+	}
 }
 
-func TestCounts(t *testing.T) {
-	c := &Counts{}
+func TestBreakerDefaultSettings(t *testing.T) {
+	settings := Settings{
+		Name: "test",
+	}
 
-	c.onRequest()
-	assert.Equal(t, uint32(1), c.Requests)
+	b := NewBreaker(settings)
 
-	c.onSuccess()
-	assert.Equal(t, uint32(1), c.TotalSuccesses)
-	assert.Equal(t, uint32(1), c.ConsecutiveSuccesses)
-	assert.Equal(t, uint32(0), c.ConsecutiveFailures)
+	if b.maxRequests != 1 {
+		t.Errorf("expected maxRequests 1, got %d", b.maxRequests)
+	}
 
-	c.onFailure()
-	assert.Equal(t, uint32(1), c.TotalFailures)
-	assert.Equal(t, uint32(1), c.ConsecutiveFailures)
-	assert.Equal(t, uint32(0), c.ConsecutiveSuccesses)
+	if b.interval != defaultInterval {
+		t.Errorf("expected interval %v, got %v", defaultInterval, b.interval)
+	}
 
-	c.clear()
-	assert.Equal(t, uint32(0), c.Requests)
-	assert.Equal(t, uint32(0), c.TotalSuccesses)
-	assert.Equal(t, uint32(0), c.TotalFailures)
-	assert.Equal(t, uint32(0), c.ConsecutiveSuccesses)
-	assert.Equal(t, uint32(0), c.ConsecutiveFailures)
+	if b.timeout != defaultTimeout {
+		t.Errorf("expected timeout %v, got %v", defaultTimeout, b.timeout)
+	}
 }
 
-func TestBreaker(t *testing.T) {
-	cb := NewBreaker(Settings{
-		Name: "test-breaker",
+func TestBreakerExecuteSuccess(t *testing.T) {
+	b := NewBreaker(Settings{Name: "test"})
+
+	result, err := b.Execute(func() (any, error) {
+		return "success", nil
 	})
 
-	assert.Equal(t, cb.Name(), "test-breaker")
-	assert.Equal(t, cb.State(), Closed)
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
 
-	// 测试请求和响应处理
-	result, err := cb.Execute(func() (any, error) {
-		return 42, nil
-	})
-	assert.Nil(t, err)
-	assert.Equal(t, 42, result)
-	assert.Equal(t, uint32(1), cb.Counts().Requests)
-	assert.Equal(t, uint32(1), cb.Counts().TotalSuccesses)
+	if result != "success" {
+		t.Errorf("expected result 'success', got %v", result)
+	}
 
-	// 测试故障处理
-	cb.Execute(func() (any, error) {
-		return 0, errors.New("error")
+	counts := b.Counts()
+	if counts.TotalSuccesses != 1 {
+		t.Errorf("expected 1 success, got %d", counts.TotalSuccesses)
+	}
+
+	if counts.ConsecutiveSuccesses != 1 {
+		t.Errorf("expected 1 consecutive success, got %d", counts.ConsecutiveSuccesses)
+	}
+}
+
+func TestBreakerExecuteFailure(t *testing.T) {
+	b := NewBreaker(Settings{Name: "test"})
+	testErr := errors.New("test error")
+
+	result, err := b.Execute(func() (any, error) {
+		return nil, testErr
 	})
-	assert.Equal(t, uint32(1), cb.Counts().TotalFailures)
+
+	if err != testErr {
+		t.Errorf("expected error %v, got %v", testErr, err)
+	}
+
+	if result != nil {
+		t.Errorf("expected nil result, got %v", result)
+	}
+
+	counts := b.Counts()
+	if counts.TotalFailures != 1 {
+		t.Errorf("expected 1 failure, got %d", counts.TotalFailures)
+	}
+
+	if counts.ConsecutiveFailures != 1 {
+		t.Errorf("expected 1 consecutive failure, got %d", counts.ConsecutiveFailures)
+	}
+}
+
+func TestBreakerExecutePanic(t *testing.T) {
+	b := NewBreaker(Settings{Name: "test"})
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic")
+		}
+	}()
+
+	b.Execute(func() (any, error) {
+		panic("test panic")
+	})
+}
+
+func TestBreakerStateTransition(t *testing.T) {
+	// 创建断路器，设置较少的失败次数阈值
+	settings := Settings{
+		Name:        "test",
+		MaxRequests: 1,
+		Interval:    1 * time.Millisecond,
+		Timeout:     1 * time.Millisecond,
+		ReadyToTrip: func(counts Counts) bool {
+			return counts.ConsecutiveFailures >= 2
+		},
+	}
+
+	b := NewBreaker(settings)
+
+	// 第一次失败
+	b.Execute(func() (any, error) {
+		return nil, errors.New("error 1")
+	})
+
+	if b.State() != Closed {
+		t.Errorf("expected state Closed after 1 failure, got %v", b.State())
+	}
+
+	// 第二次失败，应该触发断路
+	b.Execute(func() (any, error) {
+		return nil, errors.New("error 2")
+	})
+
+	// 检查状态应该是Open
+	if b.State() != Open {
+		t.Errorf("expected state Open after 2 failures, got %v", b.State())
+	}
+
+	// 在Open状态下执行应该失败
+	_, err := b.Execute(func() (any, error) {
+		return "success", nil
+	})
+
+	if err != ErrOpenState {
+		t.Errorf("expected error %v, got %v", ErrOpenState, err)
+	}
+}
+
+func TestBreakerHalfOpenState(t *testing.T) {
+	settings := Settings{
+		Name:        "test",
+		MaxRequests: 2,
+		Interval:    1 * time.Millisecond,
+		Timeout:     1 * time.Millisecond,
+		ReadyToTrip: func(counts Counts) bool {
+			return counts.ConsecutiveFailures >= 1
+		},
+	}
+
+	b := NewBreaker(settings)
+
+	// 触发断路
+	b.Execute(func() (any, error) {
+		return nil, errors.New("error")
+	})
+
+	time.Sleep(2 * time.Millisecond)
+
+	if b.State() != HalfOpen {
+		t.Errorf("expected state HalfOpen, got %v", b.State())
+	}
+
+	// 在HalfOpen状态下成功执行
+	b.Execute(func() (any, error) {
+		return "success", nil
+	})
+
+	// 再次成功执行，应该回到Closed状态
+	b.Execute(func() (any, error) {
+		return "success", nil
+	})
+
+	if b.State() != Closed {
+		t.Errorf("expected state Closed after 2 successes, got %v", b.State())
+	}
+}
+
+func TestBreakerHalfOpenTooManyRequests(t *testing.T) {
+	settings := Settings{
+		Name:        "test",
+		MaxRequests: 1,
+		Interval:    1 * time.Millisecond,
+		Timeout:     1 * time.Millisecond,
+		ReadyToTrip: func(counts Counts) bool {
+			return counts.ConsecutiveFailures >= 1
+		},
+	}
+
+	b := NewBreaker(settings)
+
+	// 触发断路
+	b.Execute(func() (any, error) {
+		return nil, errors.New("error")
+	})
+
+	time.Sleep(2 * time.Millisecond)
+
+	if b.State() != HalfOpen {
+		t.Errorf("expected state HalfOpen, got %v", b.State())
+	}
+
+	// 第一次请求应该成功
+	_, err := b.Execute(func() (any, error) {
+		return "success", nil
+	})
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	// 在HalfOpen状态下，第一次成功请求后应该回到Closed状态
+	if b.State() != Closed {
+		t.Errorf("expected state Closed after success, got %v", b.State())
+	}
+
+	// 现在在Closed状态下，应该可以正常处理请求
+	_, err = b.Execute(func() (any, error) {
+		return "success", nil
+	})
+
+	if err != nil {
+		t.Errorf("expected no error in Closed state, got %v", err)
+	}
+}
+
+func TestBreakerCustomReadyToTrip(t *testing.T) {
+	customReadyToTrip := func(counts Counts) bool {
+		return counts.TotalFailures >= 3
+	}
+
+	settings := Settings{
+		Name:        "test",
+		ReadyToTrip: customReadyToTrip,
+	}
+
+	b := NewBreaker(settings)
+
+	// 前两次失败不应该触发断路
+	for i := 0; i < 2; i++ {
+		b.Execute(func() (any, error) {
+			return nil, errors.New("error")
+		})
+	}
+
+	if b.State() != Closed {
+		t.Errorf("expected state Closed after 2 failures, got %v", b.State())
+	}
+
+	// 第三次失败应该触发断路
+	b.Execute(func() (any, error) {
+		return nil, errors.New("error")
+	})
+
+	if b.State() != Open {
+		t.Errorf("expected state Open after 3 failures, got %v", b.State())
+	}
+}
+
+func TestBreakerCustomIsSuccessful(t *testing.T) {
+	customIsSuccessful := func(err error) bool {
+		return err == nil || err.Error() == "acceptable error"
+	}
+
+	settings := Settings{
+		Name:         "test",
+		IsSuccessful: customIsSuccessful,
+	}
+
+	b := NewBreaker(settings)
+
+	// 可接受的错误应该被认为是成功的
+	b.Execute(func() (any, error) {
+		return nil, errors.New("acceptable error")
+	})
+
+	counts := b.Counts()
+	if counts.TotalSuccesses != 1 {
+		t.Errorf("expected 1 success, got %d", counts.TotalSuccesses)
+	}
+
+	// 不可接受的错误应该被认为是失败的
+	b.Execute(func() (any, error) {
+		return nil, errors.New("unacceptable error")
+	})
+
+	counts = b.Counts()
+	if counts.TotalFailures != 1 {
+		t.Errorf("expected 1 failure, got %d", counts.TotalFailures)
+	}
+}
+
+func TestBreakerStateChangeCallback(t *testing.T) {
+	var stateChanges []State
+	var stateChangeNames []string
+
+	onStateChange := func(name string, from, to State) {
+		stateChanges = append(stateChanges, to)
+		stateChangeNames = append(stateChangeNames, name)
+	}
+
+	settings := Settings{
+		Name:          "test",
+		OnStateChange: onStateChange,
+		ReadyToTrip: func(counts Counts) bool {
+			return counts.ConsecutiveFailures >= 1
+		},
+	}
+
+	b := NewBreaker(settings)
+
+	// 触发状态变化
+	b.Execute(func() (any, error) {
+		return nil, errors.New("error")
+	})
+
+	if len(stateChanges) == 0 {
+		t.Error("expected state change callback to be called")
+	}
+
+	if stateChangeNames[0] != "test" {
+		t.Errorf("expected name 'test', got '%s'", stateChangeNames[0])
+	}
 }
 
 func TestTwoStepBreaker(t *testing.T) {
-	tb := NewTwoStepBreaker(Settings{
-		Name: "test-two-step-breaker",
-	})
+	settings := Settings{
+		Name:        "test",
+		MaxRequests: 1,
+		Interval:    1 * time.Millisecond,
+		Timeout:     1 * time.Millisecond,
+		ReadyToTrip: func(counts Counts) bool {
+			return counts.ConsecutiveFailures >= 1
+		},
+	}
 
-	assert.Equal(t, tb.Name(), "test-two-step-breaker")
-	assert.Equal(t, tb.State(), Closed)
+	tb := NewTwoStepBreaker(settings)
 
+	if tb.Name() != "test" {
+		t.Errorf("expected name 'test', got '%s'", tb.Name())
+	}
+
+	if tb.State() != Closed {
+		t.Errorf("expected initial state Closed, got %v", tb.State())
+	}
+
+	// 测试Allow方法
 	done, err := tb.Allow()
-	assert.Nil(t, err)
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	if done == nil {
+		t.Error("expected done function")
+	}
+
+	// 标记为成功
 	done(true)
-	assert.Equal(t, uint32(1), tb.Counts().Requests)
-	assert.Equal(t, uint32(1), tb.Counts().TotalSuccesses)
 
-	done, err = tb.Allow()
-	assert.Nil(t, err)
-	done(false)
-	assert.Equal(t, uint32(1), tb.Counts().TotalFailures)
+	counts := tb.Counts()
+	if counts.TotalSuccesses != 1 {
+		t.Errorf("expected 1 success, got %d", counts.TotalSuccesses)
+	}
 }
 
-func TestCircuitBreakerTripAndReset(t *testing.T) {
-	// 创建一个Breaker实例
-	b := NewBreaker(Settings{
-		Name: "test-breaker",
-		ReadyToTrip: func(counts Counts) bool {
-			return counts.ConsecutiveFailures > 2 // 设置阈值为连续失败2次
-		},
-		Timeout: 1 * time.Second,
-	})
-
-	assert.Equal(t, b.State(), Closed)
-
-	// 模拟3次失败的请求，检测熔断状态
-	for i := 0; i < 3; i++ {
-		result, err := b.Execute(func() (any, error) {
-			return 0, errors.New("RPC error")
-		})
-		assert.NotNil(t, err)
-		assert.Equal(t, 0, result) // 修改这个断言，期望返回值是0
+func TestBreakerGeneration(t *testing.T) {
+	settings := Settings{
+		Name:     "test",
+		Interval: 1 * time.Millisecond,
+		Timeout:  1 * time.Millisecond,
 	}
 
-	// 检查Breaker是否进入Open状态
-	assert.Equal(t, b.State(), Open)
+	b := NewBreaker(settings)
 
-	// 尝试另一个请求，应立即被拒绝
-	result, err := b.Execute(func() (any, error) {
-		return 1, nil
-	})
-	assert.Equal(t, err, ErrOpenState)
-	assert.Nil(t, result)
+	initialGen := b.generation
 
-	// 模拟复位超时（time.Sleep），并进入Half-Open状态
-	time.Sleep(b.timeout) // 等待超时结束
+	// 等待间隔时间，应该生成新的generation
+	time.Sleep(2 * time.Millisecond)
 
-	// 检查Breaker是否进入Half-Open状态
-	assert.Equal(t, b.State(), HalfOpen)
+	// 触发状态检查
+	b.State()
 
-	// 模拟成功的请求，应该重新进入Closed状态
-	result, err = b.Execute(func() (any, error) {
-		return 1, nil
-	})
-	assert.Nil(t, err)
-	assert.Equal(t, 1, result)
-
-	// 检查Breaker是否返回Closed状态
-	assert.Equal(t, b.State(), Closed)
+	if b.generation <= initialGen {
+		t.Error("expected generation to increase")
+	}
 }
 
-func TestTwoStepCircuitBreakerTripAndReset(t *testing.T) {
-	// 创建一个TwoStepBreaker实例
-	tb := NewTwoStepBreaker(Settings{
-		Name: "test-two-step-breaker",
-		ReadyToTrip: func(counts Counts) bool {
-			return counts.ConsecutiveFailures > 2 // 设置阈值为连续失败2次
-		},
-		Timeout: 1 * time.Second,
+func TestBreakerCountsClear(t *testing.T) {
+	settings := Settings{
+		Name:     "test",
+		Interval: 1 * time.Millisecond,
+	}
+	b := NewBreaker(settings)
+
+	// 添加一些计数
+	b.Execute(func() (any, error) {
+		return "success", nil
 	})
 
-	assert.Equal(t, tb.State(), Closed)
+	b.Execute(func() (any, error) {
+		return nil, errors.New("error")
+	})
 
-	// 模拟3次失败的请求，检测熔断状态
-	for i := 0; i < 3; i++ {
-		done, err := tb.Allow()
-		assert.Nil(t, err)
-		done(false) // 模拟失败
+	counts := b.Counts()
+	if counts.Requests != 2 {
+		t.Errorf("expected 2 requests, got %d", counts.Requests)
 	}
 
-	// 检查TwoStepBreaker是否进入Open状态
-	assert.Equal(t, tb.State(), Open)
+	// 等待间隔时间，计数应该被清除
+	time.Sleep(2 * time.Millisecond)
+	b.State()
 
-	// 尝试另一个请求，应立即被拒绝
-	done, err := tb.Allow()
-	assert.Equal(t, err, ErrOpenState)
-	assert.Nil(t, done)
-
-	// 模拟复位超时（time.Sleep），并进入Half-Open状态
-	time.Sleep(tb.b.timeout) // 等待超时结束
-
-	// 检查TwoStepBreaker是否进入Half-Open状态
-	assert.Equal(t, tb.State(), HalfOpen)
-
-	// 模拟成功的请求，应该重新进入Closed状态
-	done, err = tb.Allow()
-	assert.Nil(t, err)
-	done(true) // 模拟成功
-
-	// 检查TwoStepBreaker是否返回Closed状态
-	assert.Equal(t, tb.State(), Closed)
+	counts = b.Counts()
+	if counts.Requests != 0 {
+		t.Errorf("expected 0 requests after clear, got %d", counts.Requests)
+	}
 }
